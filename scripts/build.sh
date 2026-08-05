@@ -79,9 +79,9 @@ gcc -O2 -Wall -Wextra "$root_dir/dashboard/runtime/aoostar-power-button.c" \
     -o "$dist_dir/bin/aoostar-power-button"
 
 install -m 0755 "$root_dir/dashboard/runtime/aoostar-lab-sensors" \
-    "$dist_dir/bin/marian-lab-sensors"
+    "$dist_dir/bin/aoostar-lab-sensors"
 install -m 0755 "$root_dir/dashboard/runtime/aoostar-health-monitor" \
-    "$dist_dir/bin/marian-lab-health-monitor"
+    "$dist_dir/bin/aoostar-health-monitor"
 install -m 0644 "$root_dir/dashboard/config/dashboard.json" \
     "$dist_dir/share/marian-lab/dashboard.json"
 cp -a "$root_dir/dashboard/assets/." "$dist_dir/share/marian-lab/img/"

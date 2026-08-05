@@ -83,7 +83,8 @@ change host configuration.
 ```
 
 See [Build documentation](docs/build.md). Deployment is intentionally a manual,
-reviewed administrator action.
+reviewed administrator action; see the [manual deployment reference](docs/deployment.md)
+and the [recorded test results](TESTING.md).
 
 ## Upstream and licensing
 

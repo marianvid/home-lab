@@ -7,7 +7,7 @@ dist_dir=${MARIAN_LAB_DIST_DIR:-$root_dir/dist}
 required=(
     bin/asterctl bin/aster-sysinfo bin/mafp-next-panel
     bin/mafp-calibrate bin/aoostar-power-button
-    bin/marian-lab-sensors bin/marian-lab-health-monitor
+    bin/aoostar-lab-sensors bin/aoostar-health-monitor
     share/marian-lab/dashboard.json
     rootfs/opt/libfprint-mafp/lib/libfprint-2.so.2
 )
@@ -19,8 +19,8 @@ for path in "${required[@]}"; do
 done
 
 python3 -m json.tool "$dist_dir/share/marian-lab/dashboard.json" >/dev/null
-bash -n "$dist_dir/bin/marian-lab-sensors"
-bash -n "$dist_dir/bin/marian-lab-health-monitor"
+bash -n "$dist_dir/bin/aoostar-lab-sensors"
+bash -n "$dist_dir/bin/aoostar-health-monitor"
 "$dist_dir/bin/asterctl" --version
 "$dist_dir/bin/aster-sysinfo" --version
 
