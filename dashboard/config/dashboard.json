@@ -1184,8 +1184,8 @@
         {
           "mode": 1,
           "type": 1,
-          "name": "lab_lexar_unsafe",
-          "label": "lab_lexar_unsafe",
+          "name": "lab_lexar_capacity",
+          "label": "lab_lexar_capacity",
           "x": 596,
           "y": 256,
           "width": 0,
@@ -1414,8 +1414,8 @@
         {
           "mode": 1,
           "type": 1,
-          "name": "lab_corsair_unsafe",
-          "label": "lab_corsair_unsafe",
+          "name": "lab_corsair_capacity",
+          "label": "lab_corsair_capacity",
           "x": 596,
           "y": 256,
           "width": 0,

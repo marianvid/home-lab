@@ -68,6 +68,15 @@ format_used_percent() {
     }'
 }
 
+format_capacity_pair() {
+    awk -v available="$1" -v capacity="$2" 'BEGIN {
+        tib = 1099511627776
+        if (capacity <= 0) { print "N/A"; exit }
+        if (available < 0) available = 0
+        printf "%.1f / %.1f TiB", available/tib, capacity/tib
+    }'
+}
+
 assign_health_tokens() {
     prefix=$1
     state=$2
@@ -163,9 +172,15 @@ while true; do
     lexar_thin_used=$(lvs --noheadings --units b --nosuffix -o lv_size,data_percent pve/data 2>/dev/null | awk '{printf "%.0f", $1*$2/100}')
     lexar_used_bytes=$((${lexar_root_used:-0}+${lexar_efi_used:-0}+${lexar_thin_used:-0}))
     lexar_used=$(format_used_percent "$lexar_used_bytes" "$lexar_total_bytes")
+    lexar_available_bytes=$((lexar_total_bytes-lexar_used_bytes))
+    lexar_capacity=$(format_capacity_pair "$lexar_available_bytes" "$lexar_total_bytes")
     corsair_total_bytes=$(blockdev --getsize64 "$corsair_dev" 2>/dev/null || echo 0)
     corsair_used_bytes=$(df -B1 --output=used "$external_mount" 2>/dev/null | awk 'NR==2 {print $1+0}')
     corsair_used=$(format_used_percent "${corsair_used_bytes:-0}" "$corsair_total_bytes")
+    read -r corsair_available_bytes corsair_capacity_bytes <<EOF
+$(df -B1 --output=avail,size "$external_mount" 2>/dev/null | awk 'NR==2 {print $1+0, $2+0}')
+EOF
+    corsair_capacity=$(format_capacity_pair "${corsair_available_bytes:-0}" "${corsair_capacity_bytes:-0}")
     lexar_cache="$smart_cache_dir/lexar-smart.txt"
     corsair_cache="$smart_cache_dir/corsair-smart.txt"
     refresh_smart_cache "$lexar_dev" "$lexar_cache" "$now"
@@ -308,7 +323,7 @@ while true; do
         echo "lab_lexar_spare: $(smart_field "$lexar_cache" "Available Spare")"
         echo "lab_lexar_spare_threshold: $(smart_field "$lexar_cache" "Available Spare Threshold")"
         echo "lab_lexar_cycles: $(smart_field "$lexar_cache" "Power Cycles")"
-        echo "lab_lexar_unsafe: $lexar_unsafe"
+        echo "lab_lexar_capacity: $lexar_capacity"
         echo "lab_lexar_media_errors: $lexar_media_errors"
         echo "lab_lexar_error_entries: $(smart_field "$lexar_cache" "Error Information Log Entries")"
         echo "lab_lexar_warning_temp_time: $(smart_field "$lexar_cache" "Warning  Comp. Temperature Time")"
@@ -328,7 +343,7 @@ while true; do
         echo "lab_corsair_spare: $(smart_field "$corsair_cache" "Available Spare")"
         echo "lab_corsair_spare_threshold: $(smart_field "$corsair_cache" "Available Spare Threshold")"
         echo "lab_corsair_cycles: $(smart_field "$corsair_cache" "Power Cycles")"
-        echo "lab_corsair_unsafe: $corsair_unsafe"
+        echo "lab_corsair_capacity: $corsair_capacity"
         echo "lab_corsair_media_errors: $corsair_media_errors"
         echo "lab_corsair_error_entries: $(smart_field "$corsair_cache" "Error Information Log Entries")"
         echo "lab_corsair_warning_temp_time: $(smart_field "$corsair_cache" "Warning  Comp. Temperature Time")"

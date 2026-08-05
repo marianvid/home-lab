@@ -14,6 +14,11 @@ panels use `Parent > Child` names, allowing navigation to discover them without
 hard-coded panel counts. Missing removable disks are omitted, not reported as
 failed placeholders.
 
+Each storage detail panel prioritizes temperature, real used space, SMART,
+wear, data written, power-on time, available/total filesystem capacity and
+media errors. Unsafe-shutdown counts remain available through raw SMART tools
+but do not consume a primary LCD card.
+
 Health states are rendered compactly as `✓ OK`, amber `● Warn`, and red `Err`
 with a slowly blinking dot. Unavailable data is never silently presented as a
 healthy zero. Error conditions include SMART/media failures, unsafe temperature

@@ -28,6 +28,10 @@ details/back—and does not extract or store biometric templates.
 
 ![Adaptive Storage panel](gallery/storage.png)
 
+| Internal NVMe details | External USB4/NVMe details |
+| --- | --- |
+| ![Internal storage details](gallery/storage-lexar-details.png) | ![External storage details](gallery/storage-corsair-details.png) |
+
 ![Network panel with documentation-only IP addresses](gallery/network.png)
 
 ![Services panel](gallery/services.png)
@@ -47,7 +51,8 @@ details/back—and does not extract or store biometric templates.
 
 - Health, Compute, adaptive Storage, Network and Services panels.
 - Compact OK/Warn/Err states with a slowly pulsing red error dot.
-- NVMe SMART temperature, wear, bytes written, hours and error information.
+- NVMe SMART temperature, wear, bytes written, hours, available/capacity and
+  media-error information.
 - Dynamic storage cards without placeholders for absent devices.
 - Persistent, low-latency tap/hold input through a patched libfprint driver.
 - Guarded physical power-button menu with explicit confirmation and timeout.

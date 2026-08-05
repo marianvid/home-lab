@@ -30,6 +30,22 @@ lab_storage_int1_ok: ✓ OK
 lab_storage_ext1_name: EXT 1 · USB4 NVME
 lab_storage_ext1_temp: 45
 lab_storage_ext1_ok: ✓ OK
+lab_lexar_temp: 43
+lab_lexar_used: 0.2%
+lab_lexar_smart: OK
+lab_lexar_wear: 0
+lab_lexar_written: 41.4 GB
+lab_lexar_hours: 271
+lab_lexar_capacity: 3.7 / 3.7 TiB
+lab_lexar_media_errors: 0
+lab_corsair_temp: 45
+lab_corsair_used: <0.1%
+lab_corsair_smart: OK
+lab_corsair_wear: 0
+lab_corsair_written: 5.1 TB
+lab_corsair_hours: 7136
+lab_corsair_capacity: 3.4 / 3.6 TiB
+lab_corsair_media_errors: 0
 lab_ip: 192.0.2.10
 lab_link: 2500 Mb/s
 lab_net_down: 84.2
