@@ -25,7 +25,7 @@ Click any panel to open the full-resolution image.
     <td width="50%" align="center">
       <a href="storage.png"><img src="storage.png" width="460" alt="Adaptive Storage panel"></a><br>
       <small><em><strong>Storage</strong><br>
-      Adaptive internal/external device layout without empty placeholders.</em></small><br><br>
+      Adaptive internal/external device layout.</em></small><br><br>
     </td>
     <td width="50%" align="center">
       <a href="network.png"><img src="network.png" width="460" alt="Network panel"></a><br>
