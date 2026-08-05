@@ -21,6 +21,19 @@ details/back—and does not extract or store biometric templates.
 
 ![MARIAN LAB Health dashboard](gallery/health.png)
 
+<details>
+<summary>Dashboard gallery</summary>
+
+![Compute panel](gallery/compute.png)
+
+![Adaptive Storage panel](gallery/storage.png)
+
+![Network panel with documentation-only IP addresses](gallery/network.png)
+
+![Services panel](gallery/services.png)
+
+</details>
+
 ## Highlights
 
 - Health, Compute, adaptive Storage, Network and Services panels.
