@@ -19,6 +19,22 @@ console. It presents live health, compute, storage, network and service state.
 The fingerprint reader is used only as a touch controller—tap for next, hold for
 details/back—and does not extract or store biometric templates.
 
+## Origin and acknowledgements
+
+HOME LAB builds on [`aoostar-rs`](https://github.com/zehnm/aoostar-rs), created
+by [Markus Zehnder (`@zehnm`)](https://github.com/zehnm). His reverse
+engineering of the undocumented AOOSTAR display protocol and Rust
+implementation made Linux control of the GEM12+ Pro LCD possible. This project
+uses a pinned `aoostar-rs` revision and extends it with hierarchical manual
+navigation, responsive external triggers, guarded system actions and adaptive
+storage panels.
+
+Fingerprint touch handling builds on the
+[`libfprint`](https://gitlab.freedesktop.org/libfprint/libfprint) project. HOME
+LAB carries an opt-in patch for the MAFP reader that treats it as a touch
+control without biometric enrollment. Full upstream revisions, modifications
+and licenses are recorded in [THIRD_PARTY.md](THIRD_PARTY.md).
+
 ![HOME LAB Health dashboard](gallery/health.png)
 
 <details>
@@ -118,7 +134,8 @@ and the [recorded test results](TESTING.md).
 
 ## Upstream and licensing
 
-- [`zehnm/aoostar-rs`](https://github.com/zehnm/aoostar-rs), MIT OR Apache-2.0.
+- [`zehnm/aoostar-rs`](https://github.com/zehnm/aoostar-rs), by
+  [Markus Zehnder](https://github.com/zehnm), MIT OR Apache-2.0.
 - [`libfprint/libfprint`](https://gitlab.freedesktop.org/libfprint/libfprint),
   LGPL-2.1-or-later.
 
