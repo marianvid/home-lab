@@ -1,0 +1,48 @@
+lab_health_compute_ok: ✓ OK
+lab_health_compute_warning:
+lab_health_compute_critical:
+lab_health_compute_summary: CPU 51°C · RAM 18%
+lab_health_storage_ok: ✓ OK
+lab_health_storage_warning:
+lab_health_storage_critical:
+lab_health_storage_summary: 2 disks · MAX 45°C
+lab_health_network_ok: ✓ OK
+lab_health_network_warning:
+lab_health_network_critical:
+lab_health_network_summary: LINK 2.5G · ONLINE
+lab_health_services_ok: ✓ OK
+lab_health_services_warning:
+lab_health_services_critical:
+lab_health_services_summary: PVE 4/4 · LAB 5/5
+lab_cpu_temp: 51
+lab_cpu_usage: 14
+lab_mem_percent: 18
+lab_load_one: 0.42
+lab_cpu_frequency: 3.60
+lab_gpu_temp: 48
+lab_memory_temp: 43
+lab_uptime: 12d 4h
+lab_storage_layout: 11
+lab_storage_counts: 1 INT · 1 EXT
+lab_storage_int1_name: INT 1 · NVME
+lab_storage_int1_temp: 43
+lab_storage_int1_ok: ✓ OK
+lab_storage_ext1_name: EXT 1 · USB4 NVME
+lab_storage_ext1_temp: 45
+lab_storage_ext1_ok: ✓ OK
+lab_ip: 192.0.2.10
+lab_link: 2500 Mb/s
+lab_net_down: 84.2
+lab_net_up: 12.8
+lab_iface: vmbr0
+lab_gateway: 192.0.2.1
+lab_rx_total: 1.2 TiB
+lab_tx_total: 340 GiB
+lab_pve_services: 4/4
+lab_lab_services: 5/5
+lab_vm_state: 1/2
+lab_ct_state: 3/3
+lab_storage_state: 3/3 OK
+lab_failed_units: 0
+lab_ssh_state: RUNNING
+lab_node_state: ONLINE

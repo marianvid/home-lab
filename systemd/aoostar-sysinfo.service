@@ -1,0 +1,13 @@
+[Unit]
+Description=AOOSTAR display system sensor provider
+After=local-fs.target
+
+[Service]
+Type=exec
+RuntimeDirectory=aoostar-display
+ExecStart=/usr/local/bin/aster-sysinfo --out /run/aoostar-display/sysinfo.txt --temp-dir /run/aoostar-display --refresh 1
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

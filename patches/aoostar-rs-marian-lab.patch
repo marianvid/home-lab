@@ -1,0 +1,267 @@
+diff --git a/crates/asterctl/src/cfg.rs b/crates/asterctl/src/cfg.rs
+index 71c2536..0329006 100644
+--- a/crates/asterctl/src/cfg.rs
++++ b/crates/asterctl/src/cfg.rs
+@@ -131,7 +131,15 @@ pub struct MonitorConfig {
+ impl MonitorConfig {
+     pub fn get_next_active_panel(&mut self) -> Option<&Panel> {
+         let mut active_panel_idx = self.active_panel_idx.unwrap_or(0) + 1;
+-        if active_panel_idx > self.panels.len() {
++        let active_panel_count = self
++            .active_panels
++            .iter()
++            .filter(|active| **active > 0 && **active <= self.panels.len() as u32)
++            .count();
++        if active_panel_count == 0 {
++            return None;
++        }
++        if active_panel_idx > active_panel_count {
+             active_panel_idx = 1;
+         }
+
+@@ -272,7 +280,7 @@ pub enum SensorDirection {
+ }
+
+ /// Custom DIY panel definition
+-#[derive(Debug, Serialize, Deserialize)]
++#[derive(Debug, Clone, Serialize, Deserialize)]
+ pub struct Panel {
+     /// Custom panel id
+     pub id: Option<String>,
+@@ -320,7 +328,7 @@ impl Panel {
+ }
+
+ /// One Data Display Unit
+-#[derive(Debug, Serialize, Deserialize)]
++#[derive(Debug, Clone, Serialize, Deserialize)]
+ #[serde(rename_all = "camelCase")]
+ pub struct Sensor {
+     /// Sensor mode: text, fan, progress, pointer
+diff --git a/crates/asterctl/src/main.rs b/crates/asterctl/src/main.rs
+index c855cf2..f77d43c 100644
+--- a/crates/asterctl/src/main.rs
++++ b/crates/asterctl/src/main.rs
+@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
+ use std::str::FromStr;
+ use std::sync::{Arc, RwLock};
+ use std::thread::sleep;
++use std::process::Command;
+ use std::time::{Duration, Instant};
+
+ /// AOOSTAR WTR MAX and GEM12+ PRO screen control.
+@@ -267,14 +268,40 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+         .switch_time
+         .as_deref()
+         .and_then(|v| f32::from_str(v).ok())
+-        .map(|v| Duration::from_millis((v * 1000.0) as u64))
+-        .unwrap_or(Duration::from_secs(5));
++        // Zero means manual-only switching. Missing/invalid keeps the 5s default.
++        .map(|v| (v > 0.0).then(|| Duration::from_millis((v * 1000.0) as u64)))
++        .unwrap_or(Some(Duration::from_secs(5)));
++
++    let next_panel_trigger = Path::new("/run/aoostar-next-panel");
++    let details_panel_trigger = Path::new("/run/aoostar-details-panel");
++    let root_panel_trigger = Path::new("/run/aoostar-root-panel");
++    let system_actions_trigger = Path::new("/run/aoostar-system-actions");
++    let reboot_panel = cfg
++        .panels
++        .iter()
++        .find(|candidate| candidate.friendly_name() == "System Actions Reboot")
++        .cloned()
++        .ok_or(anyhow!("Missing System Actions Reboot panel"))?;
++    let shutdown_panel = cfg
++        .panels
++        .iter()
++        .find(|candidate| candidate.friendly_name() == "System Actions Shutdown")
++        .cloned()
++        .ok_or(anyhow!("Missing System Actions Shutdown panel"))?;
+
+     // panel switching loop
+     loop {
+-        let panel = cfg
++        let overview_panel = cfg
+             .get_next_active_panel()
+-            .ok_or(anyhow!("No active panel"))?;
++            .ok_or(anyhow!("No active panel"))?
++            .clone();
++        let mut panel = overview_panel.clone();
++        let mut current_level = 0usize;
++        let mut in_system_actions = false;
++        let mut shutdown_selected = false;
++        let mut system_actions_deadline: Option<Instant> = None;
++        let mut saved_panel: Option<Panel> = None;
++        let mut saved_level = 0usize;
+
+         info!("Switching panel: {}", panel.friendly_name());
+         let panel_switch_time = Instant::now();
+@@ -290,15 +317,167 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+
+             // Keeping the read lock during panel rendering should be ok, otherwise we could always clone the HashMap
+             let values = sensor_values.read().expect("RwLock is poisoned");
+-            update_panel(screen, &mut renderer, panel, &values)?;
++            let storage_layout_name = values
++                .get("lab_storage_layout")
++                .map(|layout| format!("Storage Layout {layout}"));
++            let render_panel = if panel.friendly_name() == "Storage" {
++                storage_layout_name
++                    .as_deref()
++                    .and_then(|name| {
++                        cfg.panels
++                            .iter()
++                            .find(|candidate| candidate.friendly_name() == name)
++                    })
++                    .unwrap_or(&panel)
++            } else {
++                &panel
++            };
++            update_panel(screen, &mut renderer, render_panel, &values)?;
+             drop(values);
+
+             let elapsed = upd_start_time.elapsed();
++            // Keep the normal render interval, but wake quickly for gestures.
+             if refresh > elapsed {
+-                sleep(refresh - elapsed);
++                let deadline = Instant::now() + (refresh - elapsed);
++                while Instant::now() < deadline {
++                    if next_panel_trigger.exists()
++                        || details_panel_trigger.exists()
++                        || root_panel_trigger.exists()
++                        || system_actions_trigger.exists() {
++                        break;
++                    }
++                    let remaining = deadline.saturating_duration_since(Instant::now());
++                    sleep(remaining.min(Duration::from_millis(50)));
++                }
+             }
+
+-            if panel_switch_time.elapsed() >= switch_time {
++            let next_requested = fs::remove_file(next_panel_trigger).is_ok();
++            let details_requested = fs::remove_file(details_panel_trigger).is_ok();
++            let root_requested = fs::remove_file(root_panel_trigger).is_ok();
++            let system_actions_requested = fs::remove_file(system_actions_trigger).is_ok();
++
++            if system_actions_requested {
++                if !in_system_actions {
++                    saved_panel = Some(panel.clone());
++                    saved_level = current_level;
++                }
++                in_system_actions = true;
++                shutdown_selected = false;
++                panel = reboot_panel.clone();
++                system_actions_deadline = Some(Instant::now() + Duration::from_secs(5));
++                info!("SYSTEM ACTIONS opened: REBOOT selected");
++                refresh_count = 1;
++                continue;
++            }
++
++            if in_system_actions {
++                if next_requested {
++                    shutdown_selected = !shutdown_selected;
++                    panel = if shutdown_selected {
++                        shutdown_panel.clone()
++                    } else {
++                        reboot_panel.clone()
++                    };
++                    system_actions_deadline = Some(Instant::now() + Duration::from_secs(5));
++                    info!("SYSTEM ACTIONS selection: {}", if shutdown_selected { "SHUTDOWN" } else { "REBOOT" });
++                    refresh_count = 1;
++                    continue;
++                }
++
++                if details_requested {
++                    let action = if shutdown_selected { "poweroff" } else { "reboot" };
++                    info!("SYSTEM ACTIONS confirmed: {action}");
++                    Command::new("/usr/bin/systemctl").arg(action).status()?;
++                    return Ok(());
++                }
++
++                if system_actions_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
++                    panel = saved_panel.take().unwrap_or_else(|| overview_panel.clone());
++                    current_level = saved_level;
++                    in_system_actions = false;
++                    system_actions_deadline = None;
++                    info!("SYSTEM ACTIONS timed out");
++                    refresh_count = 1;
++                    continue;
++                }
++
++                refresh_count += 1;
++                continue;
++            }
++
++            if root_requested {
++                if current_level > 0 {
++                    panel = overview_panel.clone();
++                    current_level = 0;
++                    info!("Returning to root panel: {}", panel.friendly_name());
++                    refresh_count = 1;
++                    continue;
++                }
++                // A very-long press at the root has no action.
++                continue;
++            }
++
++            if details_requested {
++                if current_level > 0 {
++                    panel = overview_panel.clone();
++                    current_level = 0;
++                    info!("Hold: returning to root panel: {}", panel.friendly_name());
++                    refresh_count = 1;
++                    continue;
++                }
++
++                let current_name = panel.friendly_name();
++                let child_prefix = format!("{current_name} > ");
++                let child_level = current_level + 1;
++                let child = cfg.panels.iter().find(|candidate| {
++                    let name = candidate.friendly_name();
++                    name.starts_with(&child_prefix)
++                        && name.matches(" > ").count() == child_level
++                });
++                if let Some(child) = child {
++                    panel = child.clone();
++                    current_level = child_level;
++                    info!("Entering level {current_level}: {}", panel.friendly_name());
++                    refresh_count = 1;
++                    continue;
++                }
++                // Long press on a leaf has no action.
++                continue;
++            }
++
++            if next_requested {
++                if current_level == 0 {
++                    break;
++                }
++
++                let current_name = panel.friendly_name();
++                let parent_name = match current_name.rsplit_once(" > ") {
++                    Some((parent, _)) => parent.to_string(),
++                    None => overview_panel.friendly_name(),
++                };
++                let sibling_prefix = format!("{parent_name} > ");
++                let siblings: Vec<Panel> = cfg
++                    .panels
++                    .iter()
++                    .filter(|candidate| {
++                        let name = candidate.friendly_name();
++                        name.starts_with(&sibling_prefix)
++                            && name.matches(" > ").count() == current_level
++                    })
++                    .cloned()
++                    .collect();
++                if let Some(position) = siblings
++                    .iter()
++                    .position(|candidate| candidate.friendly_name() == current_name)
++                {
++                    panel = siblings[(position + 1) % siblings.len()].clone();
++                    info!("Next panel on level {current_level}: {}", panel.friendly_name());
++                    refresh_count = 1;
++                }
++                continue;
++            }
++
++            if switch_time.is_some_and(|duration| panel_switch_time.elapsed() >= duration) {
+                 break;
+             }
+

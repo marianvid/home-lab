@@ -1,0 +1,13 @@
+[Unit]
+Description=AOOSTAR short Power button menu
+After=aoostar-display.service systemd-logind.service
+Requires=aoostar-display.service
+
+[Service]
+Type=simple
+ExecStart=/opt/aoostar-display/aoostar-power-button
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

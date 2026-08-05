@@ -1,0 +1,47 @@
+diff --git a/libfprint/drivers/mafpmoc/mafpmoc.c b/libfprint/drivers/mafpmoc/mafpmoc.c
+index 179c137..36d6c61 100644
+--- a/libfprint/drivers/mafpmoc/mafpmoc.c
++++ b/libfprint/drivers/mafpmoc/mafpmoc.c
+@@ -816,7 +816,19 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
+       fp_dbg ("wait finger down state %d", resp->result);
+       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
+         {
+-          nextState = MAFP_ENROLL_VERIFY_GENERATE_FEATURE;
++          fpi_device_report_finger_status (dev,
++                                           FP_FINGER_STATUS_NEEDED | FP_FINGER_STATUS_PRESENT);
++          if (g_getenv ("MAFP_TOUCH_MODE"))
++            {
++              /* Button-only mode: never extract features or advance/save an
++               * enrollment. Poll until release, then arm the interrupt again. */
++              self->press_state = MAFP_PRESS_WAIT_UP;
++              nextState = MAFP_ENROLL_VERIFY_GET_IMAGE;
++            }
++          else
++            {
++              nextState = MAFP_ENROLL_VERIFY_GENERATE_FEATURE;
++            }
+         }
+       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
+         {
+@@ -1474,6 +1486,8 @@ fp_identify_get_image_cb (FpiDeviceMafpmoc    *self,
+       fp_dbg ("wait finger down state %d", resp->result);
+       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
+         {
++          fpi_device_report_finger_status (dev,
++                                           FP_FINGER_STATUS_NEEDED | FP_FINGER_STATUS_PRESENT);
+           nextState = MAPF_IDENTIFY_GENERATE_FEATURE;
+         }
+       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
+diff --git a/tests/meson.build b/tests/meson.build
+index aad0675..2147ef3 100644
+--- a/tests/meson.build
++++ b/tests/meson.build
+@@ -292,7 +292,7 @@ else
+         args: ['-c', 'exit 77']
+     )
+
+-    foreach driver_test: drivers_tests
++    foreach driver_test, args: drivers_tests
+         test(driver_test,
+             sh,
+             args: ['-c', 'exit 77']

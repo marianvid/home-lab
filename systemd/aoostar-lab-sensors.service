@@ -1,0 +1,13 @@
+[Unit]
+Description=MARIAN LAB Proxmox sensor provider
+After=aoostar-sysinfo.service
+Requires=aoostar-sysinfo.service
+
+[Service]
+Type=exec
+ExecStart=/opt/aoostar-display/aoostar-lab-sensors
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

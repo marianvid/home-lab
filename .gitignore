@@ -1,0 +1,10 @@
+build/
+dist/
+config/local.conf
+dashboard/config/devices.conf
+*.key
+*.pem
+*.log
+.DS_Store
+.idea/
+.vscode/

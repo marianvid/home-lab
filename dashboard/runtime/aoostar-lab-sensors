@@ -1,0 +1,383 @@
+#!/bin/bash
+set -u
+
+config_file=${MARIAN_LAB_CONFIG:-/etc/marian-lab/devices.conf}
+if [ -r "$config_file" ]; then
+    # shellcheck source=/dev/null
+    . "$config_file"
+fi
+
+internal_device=${MARIAN_LAB_INTERNAL_DEVICE:-}
+external_device=${MARIAN_LAB_EXTERNAL_DEVICE:-}
+external_mount=${MARIAN_LAB_EXTERNAL_MOUNT:-/mnt/pve/media4tb}
+
+run_dir=/run/aoostar-display
+out_file="$run_dir/lab.txt"
+state_file="$run_dir/network.state"
+smart_cache_dir=/run/aoostar-smart-cache
+mkdir -p "$run_dir"
+mkdir -p "$smart_cache_dir"
+
+value_from_sysinfo() {
+    awk -F': ' -v key="$1" '$1 == key {print $2; exit}' "$run_dir/sysinfo.txt" 2>/dev/null | sed 's/ °C$//'
+}
+
+compact_uptime() {
+    awk '{s=int($1); d=int(s/86400); h=int((s%86400)/3600); m=int((s%3600)/60); if (d>0) printf "%dd %dh %dm",d,h,m; else printf "%dh %dm",h,m}' /proc/uptime
+}
+
+smart_health() {
+    smartctl -H "$1" 2>/dev/null | awk -F: '/overall-health|Health Status/ {gsub(/^[ \t]+/,"",$2); print $2; exit}' | sed 's/PASSED/OK/'
+}
+
+refresh_smart_cache() {
+    dev="$1"; cache="$2"; stamp="$3"
+    cache_time=$(stat -c %Y "$cache" 2>/dev/null || echo 0)
+    if [ $((stamp-cache_time)) -ge 10 ] && [ -e "$dev" ]; then
+        smart_tmp="$cache.$$.tmp"
+        if smartctl -a "$dev" > "$smart_tmp" 2>/dev/null; then
+            mv "$smart_tmp" "$cache"
+        else
+            rm -f "$smart_tmp"
+        fi
+    fi
+}
+
+smart_field() {
+    awk -F: -v wanted="$2" '
+        {key=$1; gsub(/^[ \t]+|[ \t]+$/, "", key)}
+        key == wanted {sub(/^[^:]*:[ \t]*/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); print; exit}
+    ' "$1" 2>/dev/null
+}
+
+smart_bracket_value() {
+    smart_field "$1" "$2" | sed -n 's/.*\[\([^]]*\)\].*/\1/p'
+}
+
+without_percent() {
+    printf '%s' "$1" | tr -d '%'
+}
+
+format_used_percent() {
+    awk -v used="$1" -v total="$2" 'BEGIN {
+        if (total <= 0) { print "N/A"; exit }
+        pct = used * 100 / total
+        if (used == 0) print "0.0%"
+        else if (pct < 0.1) print "<0.1%"
+        else printf "%.1f%%", pct
+    }'
+}
+
+assign_health_tokens() {
+    prefix=$1
+    state=$2
+    eval "${prefix}_ok='' ${prefix}_warning='' ${prefix}_critical=''"
+    case "$state" in
+        ok) eval "${prefix}_ok='✓ OK'" ;;
+        warning) eval "${prefix}_warning='! WARNING'" ;;
+        critical)
+            if [ $((now % 2)) -eq 0 ]; then
+                eval "${prefix}_critical='● CRITICAL'"
+            else
+                eval "${prefix}_critical='  CRITICAL'"
+            fi
+            ;;
+    esac
+}
+
+while true; do
+    now=$(date +%s)
+    iface=$(ip route show default 2>/dev/null | awk 'NR==1 {print $5}')
+    [ -n "$iface" ] || iface=vmbr0
+    rx=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
+    tx=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
+    down=0; up=0
+    if [ -r "$state_file" ]; then
+        read -r old_now old_rx old_tx < "$state_file" || true
+        dt=$((now-old_now))
+        if [ "$dt" -gt 0 ] && [ "$rx" -ge "$old_rx" ] && [ "$tx" -ge "$old_tx" ]; then
+            down=$(awk -v n="$((rx-old_rx))" -v d="$dt" 'BEGIN {printf "%.1f", n*8/d/1000000}')
+            up=$(awk -v n="$((tx-old_tx))" -v d="$dt" 'BEGIN {printf "%.1f", n*8/d/1000000}')
+        fi
+    fi
+    printf '%s %s %s\n' "$now" "$rx" "$tx" > "$state_file"
+
+    read -r _ u1 n1 s1 i1 w1 irq1 si1 st1 _ < /proc/stat
+    total1=$((u1+n1+s1+i1+w1+irq1+si1+st1)); idle1=$((i1+w1))
+    sleep 1
+    read -r _ u2 n2 s2 i2 w2 irq2 si2 st2 _ < /proc/stat
+    total2=$((u2+n2+s2+i2+w2+irq2+si2+st2)); idle2=$((i2+w2))
+    delta=$((total2-total1)); idle_delta=$((idle2-idle1))
+    if [ "$delta" -gt 0 ]; then cpu=$((100*(delta-idle_delta)/delta)); else cpu=0; fi
+
+    vm_total=$(qm list 2>/dev/null | awk 'NR>1 {n++} END {print n+0}')
+    vm_running=$(qm list 2>/dev/null | awk 'NR>1 && $3=="running" {n++} END {print n+0}')
+    ct_total=$(pct list 2>/dev/null | awk 'NR>1 {n++} END {print n+0}')
+    ct_running=$(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {n++} END {print n+0}')
+    storage_total=$(pvesm status 2>/dev/null | awk 'NR>1 {n++} END {print n+0}')
+    storage_active=$(pvesm status 2>/dev/null | awk 'NR>1 && $3=="active" {n++} END {print n+0}')
+    storage_detected=$(lsblk -dn -o TYPE 2>/dev/null | awk '$1=="disk" {n++} END {print n+0}')
+    guests=$( { qm list 2>/dev/null | awk 'NR>1 && $3=="running" {print $1}'; pct list 2>/dev/null | awk 'NR>1 && $2=="running" {print $1}'; } | paste -sd, -)
+    [ -n "$guests" ] || guests="none"
+
+    ip_addr=$(ip -4 -o addr show dev "$iface" 2>/dev/null | awk 'NR==1 {split($4,a,"/"); print a[1]}')
+    [ -n "$ip_addr" ] || ip_addr="no address"
+    speed=$(cat "/sys/class/net/$iface/speed" 2>/dev/null || echo unknown)
+    [ "$speed" != "-1" ] || speed=unknown
+    total_traffic=$(numfmt --to=iec --suffix=B $((rx+tx)) 2>/dev/null || echo "$((rx+tx)) B")
+    rx_total=$(numfmt --to=iec --suffix=B "$rx" 2>/dev/null || echo "$rx B")
+    tx_total=$(numfmt --to=iec --suffix=B "$tx" 2>/dev/null || echo "$tx B")
+    gateway=$(ip route show default 2>/dev/null | awk 'NR==1 {print $3}')
+    [ -n "$gateway" ] || gateway="N/A"
+    carrier=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 0)
+
+    cpu_freq=$(awk '{sum+=$1; n++} END {if(n) printf "%.2f", sum/n/1000000; else print "N/A"}' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null)
+    gpu_temp=$(value_from_sysinfo temperature_gpu); gpu_temp=${gpu_temp:-N/A}
+    memory_temp=$(value_from_sysinfo temperature_memory); memory_temp=${memory_temp:-N/A}
+    mem_percent=$(awk '/MemTotal:/ {t=$2} /MemAvailable:/ {a=$2} END {if(t) printf "%.0f", (t-a)*100/t; else print 0}' /proc/meminfo)
+    swap_percent=$(awk '/SwapTotal:/ {t=$2} /SwapFree:/ {f=$2} END {if(t) printf "%.1f", (t-f)*100/t; else print 0}' /proc/meminfo)
+    load_one=$(awk '{print $1}' /proc/loadavg)
+
+    pve_services="pveproxy pvedaemon pvestatd pve-cluster"
+    lab_services="aoostar-display aoostar-lab-sensors mafp-next-panel aoostar-power-button aoostar-health-monitor"
+    pve_service_total=0; pve_service_active=0
+    for service in $pve_services; do
+        pve_service_total=$((pve_service_total+1))
+        systemctl is-active --quiet "$service" && pve_service_active=$((pve_service_active+1))
+    done
+    lab_service_total=0; lab_service_active=0
+    for service in $lab_services; do
+        lab_service_total=$((lab_service_total+1))
+        systemctl is-active --quiet "$service" && lab_service_active=$((lab_service_active+1))
+    done
+    failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | awk 'NF {n++} END {print n+0}')
+    ssh_state=$(systemctl is-active ssh 2>/dev/null || true); [ "$ssh_state" = active ] && ssh_state=RUNNING || ssh_state=DOWN
+
+    lexar_temp=$(value_from_sysinfo temperature_nvme_Composite_Lexar_SSD_NM790_4TB); lexar_temp=${lexar_temp:-0}
+    corsair_temp=$(value_from_sysinfo temperature_nvme_Composite_Corsair_EX400U); corsair_temp=${corsair_temp:-0}
+    lexar_dev=$internal_device
+    corsair_dev=$external_device
+    lexar_total_bytes=$(blockdev --getsize64 "$lexar_dev" 2>/dev/null || echo 0)
+    lexar_root_used=$(df -B1 --output=used / 2>/dev/null | awk 'NR==2 {print $1+0}')
+    lexar_efi_used=$(df -B1 --output=used /boot/efi 2>/dev/null | awk 'NR==2 {print $1+0}')
+    lexar_thin_used=$(lvs --noheadings --units b --nosuffix -o lv_size,data_percent pve/data 2>/dev/null | awk '{printf "%.0f", $1*$2/100}')
+    lexar_used_bytes=$((${lexar_root_used:-0}+${lexar_efi_used:-0}+${lexar_thin_used:-0}))
+    lexar_used=$(format_used_percent "$lexar_used_bytes" "$lexar_total_bytes")
+    corsair_total_bytes=$(blockdev --getsize64 "$corsair_dev" 2>/dev/null || echo 0)
+    corsair_used_bytes=$(df -B1 --output=used "$external_mount" 2>/dev/null | awk 'NR==2 {print $1+0}')
+    corsair_used=$(format_used_percent "${corsair_used_bytes:-0}" "$corsair_total_bytes")
+    lexar_cache="$smart_cache_dir/lexar-smart.txt"
+    corsair_cache="$smart_cache_dir/corsair-smart.txt"
+    refresh_smart_cache "$lexar_dev" "$lexar_cache" "$now"
+    refresh_smart_cache "$corsair_dev" "$corsair_cache" "$now"
+
+    lexar_smart=$(smart_field "$lexar_cache" "SMART overall-health self-assessment test result"); lexar_smart=${lexar_smart/PASSED/OK}; lexar_smart=${lexar_smart:-N/A}
+    corsair_smart=$(smart_field "$corsair_cache" "SMART overall-health self-assessment test result"); corsair_smart=${corsair_smart/PASSED/OK}; corsair_smart=${corsair_smart:-N/A}
+    lexar_wear=$(without_percent "$(smart_field "$lexar_cache" "Percentage Used")"); lexar_wear=${lexar_wear:-N/A}
+    corsair_wear=$(without_percent "$(smart_field "$corsair_cache" "Percentage Used")"); corsair_wear=${corsair_wear:-N/A}
+    lexar_fw=$(smart_field "$lexar_cache" "Firmware Version"); lexar_fw=${lexar_fw:-N/A}
+    corsair_fw=$(smart_field "$corsair_cache" "Firmware Version"); corsair_fw=${corsair_fw:-N/A}
+    lexar_read=$(smart_bracket_value "$lexar_cache" "Data Units Read"); lexar_read=${lexar_read:-N/A}
+    corsair_read=$(smart_bracket_value "$corsair_cache" "Data Units Read"); corsair_read=${corsair_read:-N/A}
+    lexar_written=$(smart_bracket_value "$lexar_cache" "Data Units Written"); lexar_written=${lexar_written:-N/A}
+    corsair_written=$(smart_bracket_value "$corsair_cache" "Data Units Written"); corsair_written=${corsair_written:-N/A}
+    lexar_hours=$(smart_field "$lexar_cache" "Power On Hours"); lexar_hours=${lexar_hours:-N/A}
+    corsair_hours=$(smart_field "$corsair_cache" "Power On Hours"); corsair_hours=${corsair_hours:-N/A}
+    lexar_critical_warning=$(smart_field "$lexar_cache" "Critical Warning"); lexar_critical_warning=${lexar_critical_warning:-N/A}
+    corsair_critical_warning=$(smart_field "$corsair_cache" "Critical Warning"); corsair_critical_warning=${corsair_critical_warning:-N/A}
+    lexar_media_errors=$(smart_field "$lexar_cache" "Media and Data Integrity Errors"); lexar_media_errors=${lexar_media_errors:-N/A}
+    corsair_media_errors=$(smart_field "$corsair_cache" "Media and Data Integrity Errors"); corsair_media_errors=${corsair_media_errors:-N/A}
+    lexar_unsafe=$(smart_field "$lexar_cache" "Unsafe Shutdowns"); lexar_unsafe=${lexar_unsafe:-N/A}
+    corsair_unsafe=$(smart_field "$corsair_cache" "Unsafe Shutdowns"); corsair_unsafe=${corsair_unsafe:-N/A}
+    lexar_present=0; [ -n "$lexar_dev" ] && [ -e "$lexar_dev" ] && lexar_present=1
+    corsair_present=0; [ -n "$corsair_dev" ] && [ -e "$corsair_dev" ] && corsair_present=1
+    storage_int_count=$lexar_present
+    storage_ext_count=$corsair_present
+
+    lexar_health=ok
+    corsair_health=ok
+    if [ "$lexar_present" -eq 1 ]; then
+        if [ "$lexar_smart" = "N/A" ]; then lexar_health=warning; elif [ "$lexar_smart" != "OK" ]; then lexar_health=critical; fi
+        [ "$lexar_critical_warning" = "0x00" ] || [ "$lexar_critical_warning" = "0" ] || lexar_health=critical
+        [ "$lexar_media_errors" = "N/A" ] || [ "${lexar_media_errors//,/}" -eq 0 ] 2>/dev/null || lexar_health=critical
+        [ "${lexar_temp%.*}" -ge 80 ] 2>/dev/null && lexar_health=critical
+        [ "${lexar_temp%.*}" -ge 70 ] 2>/dev/null && [ "$lexar_health" = ok ] && lexar_health=warning
+        if [ "$lexar_wear" = "N/A" ]; then [ "$lexar_health" = ok ] && lexar_health=warning; else [ "${lexar_wear%.*}" -ge 90 ] 2>/dev/null && [ "$lexar_health" = ok ] && lexar_health=warning; fi
+    fi
+    if [ "$corsair_present" -eq 1 ]; then
+        if [ "$corsair_smart" = "N/A" ]; then corsair_health=warning; elif [ "$corsair_smart" != "OK" ]; then corsair_health=critical; fi
+        [ "$corsair_critical_warning" = "0x00" ] || [ "$corsair_critical_warning" = "0" ] || corsair_health=critical
+        [ "$corsair_media_errors" = "N/A" ] || [ "${corsair_media_errors//,/}" -eq 0 ] 2>/dev/null || corsair_health=critical
+        [ "${corsair_temp%.*}" -ge 80 ] 2>/dev/null && corsair_health=critical
+        [ "${corsair_temp%.*}" -ge 70 ] 2>/dev/null && [ "$corsair_health" = ok ] && corsair_health=warning
+        if [ "$corsair_wear" = "N/A" ]; then [ "$corsair_health" = ok ] && corsair_health=warning; else [ "${corsair_wear%.*}" -ge 90 ] 2>/dev/null && [ "$corsair_health" = ok ] && corsair_health=warning; fi
+    fi
+
+    compute_health=ok
+    cpu_temp_now=$(value_from_sysinfo temperature_cpu); cpu_temp_now=${cpu_temp_now:-N/A}
+    if [ "$cpu_temp_now" = "N/A" ]; then
+        compute_health=warning
+    else
+        [ "${cpu_temp_now%.*}" -ge 90 ] 2>/dev/null && compute_health=critical
+        [ "${cpu_temp_now%.*}" -ge 80 ] 2>/dev/null && [ "$compute_health" = ok ] && compute_health=warning
+    fi
+    [ "$mem_percent" -ge 95 ] 2>/dev/null && compute_health=critical
+    [ "$mem_percent" -ge 85 ] 2>/dev/null && [ "$compute_health" = ok ] && compute_health=warning
+
+    storage_health=ok
+    [ "$lexar_present" -eq 1 ] && [ "$lexar_health" = warning ] && storage_health=warning
+    [ "$corsair_present" -eq 1 ] && [ "$corsair_health" = warning ] && storage_health=warning
+    [ "$lexar_present" -eq 1 ] && [ "$lexar_health" = critical ] && storage_health=critical
+    [ "$corsair_present" -eq 1 ] && [ "$corsair_health" = critical ] && storage_health=critical
+    storage_max_temp=$(printf '%s\n%s\n' "$lexar_temp" "$corsair_temp" | awk '$1+0>m {m=$1+0} END {printf "%.0f",m}')
+
+    network_health=ok
+    [ "$carrier" = "1" ] || network_health=critical
+    [ "$ip_addr" != "no address" ] || network_health=critical
+    [ "$speed" != unknown ] || [ "$network_health" = critical ] || network_health=warning
+
+    services_health=ok
+    [ "$pve_service_active" -eq "$pve_service_total" ] || services_health=critical
+    [ "$lab_service_active" -eq "$lab_service_total" ] || services_health=critical
+    [ "$failed_units" -eq 0 ] || [ "$services_health" = critical ] || services_health=warning
+
+    assign_health_tokens compute "$compute_health"
+    assign_health_tokens storage "$storage_health"
+    assign_health_tokens network "$network_health"
+    assign_health_tokens services "$services_health"
+
+    lexar_name=""; lexar_temp_display=""; lexar_ok=""; lexar_warning=""; lexar_critical=""
+    corsair_name=""; corsair_temp_display=""; corsair_ok=""; corsair_warning=""; corsair_critical=""
+    if [ "$lexar_present" -eq 1 ]; then
+        lexar_name="INT 1 · LEXAR NM790"
+        lexar_temp_display="$lexar_temp"
+        case "$lexar_health" in
+            ok) lexar_ok="✓" ;;
+            warning) lexar_warning="!" ;;
+            critical) [ $((now % 2)) -eq 0 ] && lexar_critical="●" || lexar_critical="" ;;
+        esac
+    fi
+    if [ "$corsair_present" -eq 1 ]; then
+        corsair_name="EXT 1 · CORSAIR EX400U"
+        corsair_temp_display="$corsair_temp"
+        case "$corsair_health" in
+            ok) corsair_ok="✓" ;;
+            warning) corsair_warning="!" ;;
+            critical) [ $((now % 2)) -eq 0 ] && corsair_critical="●" || corsair_critical="" ;;
+        esac
+    fi
+    if [ -e /sys/bus/thunderbolt/devices/1-2/authorized ] || [ -e /sys/bus/thunderbolt/devices/0-2/authorized ]; then corsair_link="USB4 40G"; else corsair_link="CHECK"; fi
+
+    tmp_file="$run_dir/lab.$$.tmp"
+    {
+        echo "lab_cpu_temp: $(value_from_sysinfo temperature_cpu)"
+        echo "lab_cpu_usage: $cpu"
+        echo "lab_uptime: $(compact_uptime)"
+        echo "lab_cpu_frequency: $cpu_freq"
+        echo "lab_gpu_temp: $gpu_temp"
+        echo "lab_memory_temp: $memory_temp"
+        echo "lab_mem_percent: $mem_percent"
+        echo "lab_swap_percent: $swap_percent"
+        echo "lab_load_one: $load_one"
+        echo "lab_health_compute_ok: $compute_ok"
+        echo "lab_health_compute_warning: $compute_warning"
+        echo "lab_health_compute_critical: $compute_critical"
+        echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · RAM ${mem_percent}%"
+        echo "lab_health_storage_ok: $storage_ok"
+        echo "lab_health_storage_warning: $storage_warning"
+        echo "lab_health_storage_critical: $storage_critical"
+        echo "lab_health_storage_summary: $storage_detected DISKS · MAX ${storage_max_temp}°C"
+        echo "lab_health_network_ok: $network_ok"
+        echo "lab_health_network_warning: $network_warning"
+        echo "lab_health_network_critical: $network_critical"
+        echo "lab_health_network_summary: ↓ $down · ↑ $up Mb/s"
+        echo "lab_health_services_ok: $services_ok"
+        echo "lab_health_services_warning: $services_warning"
+        echo "lab_health_services_critical: $services_critical"
+        echo "lab_health_services_summary: PVE $pve_service_active/$pve_service_total · LAB $lab_service_active/$lab_service_total"
+        echo "lab_lexar_temp: $lexar_temp"
+        echo "lab_lexar_used: $lexar_used"
+        echo "lab_lexar_smart: $lexar_smart"
+        echo "lab_lexar_link: PCIe4 x4"
+        echo "lab_lexar_wear: $lexar_wear"
+        echo "lab_lexar_fw: $lexar_fw"
+        echo "lab_lexar_read: $lexar_read"
+        echo "lab_lexar_written: $lexar_written"
+        echo "lab_lexar_hours: $lexar_hours"
+        echo "lab_lexar_critical: $lexar_critical_warning"
+        echo "lab_lexar_spare: $(smart_field "$lexar_cache" "Available Spare")"
+        echo "lab_lexar_spare_threshold: $(smart_field "$lexar_cache" "Available Spare Threshold")"
+        echo "lab_lexar_cycles: $(smart_field "$lexar_cache" "Power Cycles")"
+        echo "lab_lexar_unsafe: $lexar_unsafe"
+        echo "lab_lexar_media_errors: $lexar_media_errors"
+        echo "lab_lexar_error_entries: $(smart_field "$lexar_cache" "Error Information Log Entries")"
+        echo "lab_lexar_warning_temp_time: $(smart_field "$lexar_cache" "Warning  Comp. Temperature Time")"
+        echo "lab_lexar_read_commands: $(smart_field "$lexar_cache" "Host Read Commands")"
+        echo "lab_lexar_write_commands: $(smart_field "$lexar_cache" "Host Write Commands")"
+        echo "lab_lexar_busy_time: $(smart_field "$lexar_cache" "Controller Busy Time") min"
+        echo "lab_corsair_temp: $corsair_temp"
+        echo "lab_corsair_used: $corsair_used"
+        echo "lab_corsair_smart: $corsair_smart"
+        echo "lab_corsair_link: $corsair_link"
+        echo "lab_corsair_wear: $corsair_wear"
+        echo "lab_corsair_fw: $corsair_fw"
+        echo "lab_corsair_read: $corsair_read"
+        echo "lab_corsair_written: $corsair_written"
+        echo "lab_corsair_hours: $corsair_hours"
+        echo "lab_corsair_critical: $corsair_critical_warning"
+        echo "lab_corsair_spare: $(smart_field "$corsair_cache" "Available Spare")"
+        echo "lab_corsair_spare_threshold: $(smart_field "$corsair_cache" "Available Spare Threshold")"
+        echo "lab_corsair_cycles: $(smart_field "$corsair_cache" "Power Cycles")"
+        echo "lab_corsair_unsafe: $corsair_unsafe"
+        echo "lab_corsair_media_errors: $corsair_media_errors"
+        echo "lab_corsair_error_entries: $(smart_field "$corsair_cache" "Error Information Log Entries")"
+        echo "lab_corsair_warning_temp_time: $(smart_field "$corsair_cache" "Warning  Comp. Temperature Time")"
+        echo "lab_corsair_read_commands: $(smart_field "$corsair_cache" "Host Read Commands")"
+        echo "lab_corsair_write_commands: $(smart_field "$corsair_cache" "Host Write Commands")"
+        echo "lab_corsair_busy_time: $(smart_field "$corsair_cache" "Controller Busy Time") min"
+        echo "lab_vm_state: $vm_running/$vm_total"
+        echo "lab_ct_state: $ct_running/$ct_total"
+        echo "lab_storage_state: $storage_active/$storage_total OK"
+        echo "lab_storage_detected: $storage_detected"
+        echo "lab_storage_counts: $storage_int_count INT · $storage_ext_count EXT"
+        echo "lab_storage_layout: ${storage_int_count}${storage_ext_count}"
+        echo "lab_storage_int1_present: $lexar_present"
+        echo "lab_storage_int1_name: $lexar_name"
+        echo "lab_storage_int1_temp: $lexar_temp_display"
+        echo "lab_storage_int1_ok: $lexar_ok"
+        echo "lab_storage_int1_warning: $lexar_warning"
+        echo "lab_storage_int1_critical: $lexar_critical"
+        echo "lab_storage_int2_name: "
+        echo "lab_storage_int2_temp: "
+        echo "lab_storage_int2_ok: "
+        echo "lab_storage_int2_warning: "
+        echo "lab_storage_int2_critical: "
+        echo "lab_storage_ext1_present: $corsair_present"
+        echo "lab_storage_ext1_name: $corsair_name"
+        echo "lab_storage_ext1_temp: $corsair_temp_display"
+        echo "lab_storage_ext1_ok: $corsair_ok"
+        echo "lab_storage_ext1_warning: $corsair_warning"
+        echo "lab_storage_ext1_critical: $corsair_critical"
+        echo "lab_storage_ext2_name: "
+        echo "lab_storage_ext2_temp: "
+        echo "lab_storage_ext2_ok: "
+        echo "lab_storage_ext2_warning: "
+        echo "lab_storage_ext2_critical: "
+        echo "lab_node_state: ONLINE"
+        echo "lab_active_guests: $guests"
+        echo "lab_ip: $ip_addr"
+        echo "lab_net_down: $down"
+        echo "lab_net_up: $up"
+        echo "lab_iface: $iface"
+        echo "lab_link: ${speed} Mb/s"
+        echo "lab_traffic_total: $total_traffic"
+        echo "lab_rx_total: $rx_total"
+        echo "lab_tx_total: $tx_total"
+        echo "lab_gateway: $gateway"
+        echo "lab_pve_services: $pve_service_active/$pve_service_total"
+        echo "lab_lab_services: $lab_service_active/$lab_service_total"
+        echo "lab_failed_units: $failed_units"
+        echo "lab_ssh_state: $ssh_state"
+    } > "$tmp_file"
+    mv "$tmp_file" "$out_file"
+done

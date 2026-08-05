@@ -1,0 +1,13 @@
+[Unit]
+Description=AOOSTAR fingerprint next-panel button
+After=aoostar-display.service
+Requires=aoostar-display.service
+
+[Service]
+Type=simple
+ExecStart=/opt/aoostar-display/mafp-next-panel
+Restart=always
+RestartSec=100ms
+
+[Install]
+WantedBy=multi-user.target

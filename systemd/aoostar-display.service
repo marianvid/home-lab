@@ -1,0 +1,14 @@
+[Unit]
+Description=MARIAN LAB dynamic LCD dashboard
+After=aoostar-sysinfo.service aoostar-lab-sensors.service
+Requires=aoostar-sysinfo.service aoostar-lab-sensors.service
+
+[Service]
+Type=exec
+WorkingDirectory=/opt/aoostar-display
+ExecStart=/usr/local/bin/asterctl --device /dev/ttyACM0 --config /opt/aoostar-display/aoostar-lab.json --config-dir /opt/aoostar-display --font-dir /usr/share/fonts/truetype/dejavu --sensor-path /run/aoostar-display
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

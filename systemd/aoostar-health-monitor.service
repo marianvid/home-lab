@@ -1,0 +1,13 @@
+[Unit]
+Description=AOOSTAR PCIe, network and USB4 health monitor
+After=network-online.target pvestatd.service aoostar-lab-sensors.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/aoostar-display/aoostar-health-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,79 @@
+#!/bin/bash
+set -u
+
+config_file=${MARIAN_LAB_CONFIG:-/etc/marian-lab/devices.conf}
+if [ -r "$config_file" ]; then
+    # shellcheck source=/dev/null
+    . "$config_file"
+fi
+
+run_dir=/run/aoostar-display
+data_dir=/var/lib/aoostar-health
+out_file="$run_dir/health.txt"
+state_file="$data_dir/last-state"
+event_log="$data_dir/events.log"
+nic_pci=${MARIAN_LAB_NIC_PCI_PATH:-}
+nic_interface=${MARIAN_LAB_NIC_INTERFACE:-vmbr0}
+external_disk=${MARIAN_LAB_EXTERNAL_DEVICE:-}
+external_mount=${MARIAN_LAB_EXTERNAL_MOUNT:-}
+
+mkdir -p "$run_dir" "$data_dir"
+
+write_status() {
+    tmp="$out_file.$$.tmp"
+    {
+        echo "lab_health_status: $1"
+        echo "lab_health_detail: $2"
+        if grep -qw pcie_aspm=off /proc/cmdline; then
+            echo "lab_pcie_aspm: OFF"
+        else
+            echo "lab_pcie_aspm: ON"
+        fi
+    } > "$tmp"
+    mv "$tmp" "$out_file"
+}
+
+write_status "STARTING" "hardware checks warming up"
+sleep 30
+
+while true; do
+    issues=()
+
+    if [ -n "$nic_pci" ] && [ ! -e "$nic_pci" ]; then
+        issues+=("NIC PCIe LOST")
+    elif [ "$(cat "/sys/class/net/$nic_interface/carrier" 2>/dev/null || echo 0)" != "1" ]; then
+        issues+=("NIC LINK DOWN")
+    fi
+
+    if [ -n "$external_disk" ] && [ ! -e "$external_disk" ]; then
+        issues+=("CORSAIR USB4 LOST")
+    elif [ -n "$external_mount" ] && ! mountpoint -q "$external_mount"; then
+        issues+=("MEDIA4TB UNMOUNTED")
+    fi
+
+    if [ ${#issues[@]} -eq 0 ]; then
+        state="OK"
+        detail="NIC + USB4 storage healthy"
+        display="OK"
+    else
+        state=$(IFS=' | '; echo "${issues[*]}")
+        detail="$state"
+        display="ALERT · ${issues[0]}"
+    fi
+
+    previous=$(cat "$state_file" 2>/dev/null || true)
+    if [ "$state" != "$previous" ]; then
+        timestamp=$(date --iso-8601=seconds)
+        if [ "$state" = "OK" ]; then
+            logger -p daemon.notice -t aoostar-health -- "RECOVERED: $detail"
+            printf '%s RECOVERED: %s\n' "$timestamp" "$detail" >> "$event_log"
+        else
+            logger -p daemon.crit -t aoostar-health -- "ALERT: $detail"
+            printf '%s ALERT: %s\n' "$timestamp" "$detail" >> "$event_log"
+        fi
+        printf '%s\n' "$state" > "$state_file"
+    fi
+
+    write_status "$display" "$detail"
+    sleep 5
+done
