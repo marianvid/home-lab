@@ -1,4 +1,4 @@
-#Dashboard Gallery
+# Dashboard Gallery
 
 Renderer-generated captures at the native LCD resolution of **960×376**. All
 values are synthetic or anonymized documentation fixtures; no private host IP,
