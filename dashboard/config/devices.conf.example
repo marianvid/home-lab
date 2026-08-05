@@ -1,8 +1,8 @@
-# Copy to /etc/marian-lab/devices.conf and adapt it to the local machine.
+# Copy to /etc/home-lab/devices.conf and adapt it to the local machine.
 # Use stable /dev/disk/by-id paths. Never publish the resulting local file.
-MARIAN_LAB_INTERNAL_DEVICE=/dev/disk/by-id/nvme-INTERNAL_DEVICE_ID
-MARIAN_LAB_EXTERNAL_DEVICE=/dev/disk/by-id/nvme-EXTERNAL_DEVICE_ID
-MARIAN_LAB_EXTERNAL_MOUNT=/mnt/pve/media4tb
-MARIAN_LAB_NIC_INTERFACE=vmbr0
+HOME_LAB_INTERNAL_DEVICE=/dev/disk/by-id/nvme-INTERNAL_DEVICE_ID
+HOME_LAB_EXTERNAL_DEVICE=/dev/disk/by-id/nvme-EXTERNAL_DEVICE_ID
+HOME_LAB_EXTERNAL_MOUNT=/mnt/pve/media4tb
+HOME_LAB_NIC_INTERFACE=vmbr0
 # Leave empty to disable the PCI-presence check.
-MARIAN_LAB_NIC_PCI_PATH=/sys/bus/pci/devices/0000:00:00.0
+HOME_LAB_NIC_PCI_PATH=/sys/bus/pci/devices/0000:00:00.0

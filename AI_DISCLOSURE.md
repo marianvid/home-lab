@@ -1,6 +1,6 @@
 # Human–AI collaboration disclosure
 
-MARIAN LAB is intentionally published as a **human–AI collaborative creation**.
+HOME LAB is intentionally published as a **human–AI collaborative creation**.
 
 The human project owner defined the goal, architecture, safety priorities,
 interaction model and visual requirements; calibrated gestures; installed and

@@ -37,7 +37,7 @@ The reference deployment maps build artifacts as follows:
 | dashboard assets/config | `/opt/aoostar-display` |
 | gesture and power helpers | `/opt/aoostar-display` |
 | reviewed units | `/etc/systemd/system` |
-| local device config | `/etc/marian-lab/devices.conf` |
+| local device config | `/etc/home-lab/devices.conf` |
 
 Copying is intentionally left to the administrator. Use a staging directory,
 compare files, preserve backups and reload systemd only after verification.

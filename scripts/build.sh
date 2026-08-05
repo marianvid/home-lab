@@ -2,8 +2,8 @@
 set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-build_dir=${MARIAN_LAB_BUILD_DIR:-$root_dir/build}
-dist_dir=${MARIAN_LAB_DIST_DIR:-$root_dir/dist}
+build_dir=${HOME_LAB_BUILD_DIR:-$root_dir/build}
+dist_dir=${HOME_LAB_DIST_DIR:-$root_dir/dist}
 aoostar_commit=2f4d95957d2d61f9fe5cd27e4cf14bd2ae566f63
 libfprint_commit=c4654fdc85c25afdd9115bec2f95a44145ae3b94
 
@@ -29,7 +29,7 @@ for module in glib-2.0 gio-2.0 gusb; do
 done
 [ "$missing" -eq 0 ] || exit 1
 
-mkdir -p "$build_dir" "$dist_dir/bin" "$dist_dir/share/marian-lab/img" \
+mkdir -p "$build_dir" "$dist_dir/bin" "$dist_dir/share/home-lab/img" \
     "$dist_dir/systemd" "$dist_dir/config" "$dist_dir/rootfs"
 
 checkout_source() {
@@ -47,8 +47,8 @@ checkout_source() {
 aoostar_src=$build_dir/aoostar-rs
 checkout_source aoostar-rs https://github.com/zehnm/aoostar-rs.git \
     "$aoostar_commit" "$aoostar_src"
-git -C "$aoostar_src" apply --check "$root_dir/patches/aoostar-rs-marian-lab.patch"
-git -C "$aoostar_src" apply "$root_dir/patches/aoostar-rs-marian-lab.patch"
+git -C "$aoostar_src" apply --check "$root_dir/patches/aoostar-rs-home-lab.patch"
+git -C "$aoostar_src" apply "$root_dir/patches/aoostar-rs-home-lab.patch"
 cargo build --manifest-path "$aoostar_src/Cargo.toml" --release --locked \
     -p asterctl -p aster-sysinfo
 install -m 0755 "$aoostar_src/target/release/asterctl" "$dist_dir/bin/asterctl"
@@ -83,8 +83,8 @@ install -m 0755 "$root_dir/dashboard/runtime/aoostar-lab-sensors" \
 install -m 0755 "$root_dir/dashboard/runtime/aoostar-health-monitor" \
     "$dist_dir/bin/aoostar-health-monitor"
 install -m 0644 "$root_dir/dashboard/config/dashboard.json" \
-    "$dist_dir/share/marian-lab/dashboard.json"
-cp -a "$root_dir/dashboard/assets/." "$dist_dir/share/marian-lab/img/"
+    "$dist_dir/share/home-lab/dashboard.json"
+cp -a "$root_dir/dashboard/assets/." "$dist_dir/share/home-lab/img/"
 cp -a "$root_dir/systemd/." "$dist_dir/systemd/"
 cp -a "$root_dir/dashboard/config/." "$dist_dir/config/"
 

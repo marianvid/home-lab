@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 
-config_file=${MARIAN_LAB_CONFIG:-/etc/marian-lab/devices.conf}
+config_file=${HOME_LAB_CONFIG:-/etc/home-lab/devices.conf}
 if [ -r "$config_file" ]; then
     # shellcheck source=/dev/null
     . "$config_file"
@@ -12,10 +12,10 @@ data_dir=/var/lib/aoostar-health
 out_file="$run_dir/health.txt"
 state_file="$data_dir/last-state"
 event_log="$data_dir/events.log"
-nic_pci=${MARIAN_LAB_NIC_PCI_PATH:-}
-nic_interface=${MARIAN_LAB_NIC_INTERFACE:-vmbr0}
-external_disk=${MARIAN_LAB_EXTERNAL_DEVICE:-}
-external_mount=${MARIAN_LAB_EXTERNAL_MOUNT:-}
+nic_pci=${HOME_LAB_NIC_PCI_PATH:-}
+nic_interface=${HOME_LAB_NIC_INTERFACE:-vmbr0}
+external_disk=${HOME_LAB_EXTERNAL_DEVICE:-}
+external_mount=${HOME_LAB_EXTERNAL_MOUNT:-}
 
 mkdir -p "$run_dir" "$data_dir"
 

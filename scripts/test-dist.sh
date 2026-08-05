@@ -2,13 +2,13 @@
 set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-dist_dir=${MARIAN_LAB_DIST_DIR:-$root_dir/dist}
+dist_dir=${HOME_LAB_DIST_DIR:-$root_dir/dist}
 
 required=(
     bin/asterctl bin/aster-sysinfo bin/mafp-next-panel
     bin/mafp-calibrate bin/aoostar-power-button
     bin/aoostar-lab-sensors bin/aoostar-health-monitor
-    share/marian-lab/dashboard.json
+    share/home-lab/dashboard.json
     rootfs/opt/libfprint-mafp/lib/libfprint-2.so.2
 )
 for path in "${required[@]}"; do
@@ -18,7 +18,7 @@ for path in "${required[@]}"; do
     }
 done
 
-python3 -m json.tool "$dist_dir/share/marian-lab/dashboard.json" >/dev/null
+python3 -m json.tool "$dist_dir/share/home-lab/dashboard.json" >/dev/null
 bash -n "$dist_dir/bin/aoostar-lab-sensors"
 bash -n "$dist_dir/bin/aoostar-health-monitor"
 "$dist_dir/bin/asterctl" --version
@@ -28,8 +28,8 @@ capture_dir=$dist_dir/simulation
 mkdir -p "$capture_dir"
 cd "$capture_dir"
 timeout 3s "$dist_dir/bin/asterctl" --simulate --save \
-    --config "$dist_dir/share/marian-lab/dashboard.json" \
-    --config-dir "$dist_dir/share/marian-lab" \
+    --config "$dist_dir/share/home-lab/dashboard.json" \
+    --config-dir "$dist_dir/share/home-lab" \
     --font-dir /usr/share/fonts/truetype/dejavu \
     --sensor-path "$root_dir/tests/fixtures/sensors" || status=$?
 if [ "${status:-0}" -ne 0 ] && [ "${status:-0}" -ne 124 ]; then

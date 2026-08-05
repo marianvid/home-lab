@@ -1,15 +1,15 @@
 #!/bin/bash
 set -u
 
-config_file=${MARIAN_LAB_CONFIG:-/etc/marian-lab/devices.conf}
+config_file=${HOME_LAB_CONFIG:-/etc/home-lab/devices.conf}
 if [ -r "$config_file" ]; then
     # shellcheck source=/dev/null
     . "$config_file"
 fi
 
-internal_device=${MARIAN_LAB_INTERNAL_DEVICE:-}
-external_device=${MARIAN_LAB_EXTERNAL_DEVICE:-}
-external_mount=${MARIAN_LAB_EXTERNAL_MOUNT:-/mnt/pve/media4tb}
+internal_device=${HOME_LAB_INTERNAL_DEVICE:-}
+external_device=${HOME_LAB_EXTERNAL_DEVICE:-}
+external_mount=${HOME_LAB_EXTERNAL_MOUNT:-/mnt/pve/media4tb}
 
 run_dir=/run/aoostar-display
 out_file="$run_dir/lab.txt"

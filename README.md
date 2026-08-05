@@ -1,4 +1,4 @@
-# MARIAN LAB
+# HOME LAB
 
 An interactive Linux/Proxmox dashboard for the built-in LCD and fingerprint
 sensor of the AOOSTAR GEM12+ Pro mini PC.
@@ -9,7 +9,7 @@ sensor of the AOOSTAR GEM12+ Pro mini PC.
 > risk.** Read [DISCLAIMER.md](DISCLAIMER.md) before building or deploying it.
 
 > [!NOTE]
-> MARIAN LAB is a disclosed **human–AI collaborative creation**. Product intent,
+> HOME LAB is a disclosed **human–AI collaborative creation**. Product intent,
 > interaction design and real-device validation are human-led; implementation
 > and documentation were developed with AI assistance and human review. See
 > [AI_DISCLOSURE.md](AI_DISCLOSURE.md).

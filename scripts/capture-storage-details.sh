@@ -2,9 +2,9 @@
 set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-dist_dir=${MARIAN_LAB_DIST_DIR:-$root_dir/dist}
+dist_dir=${HOME_LAB_DIST_DIR:-$root_dir/dist}
 capture_dir=${1:-$dist_dir/storage-detail-capture}
-manage_display=${MARIAN_LAB_MANAGE_DISPLAY:-0}
+manage_display=${HOME_LAB_MANAGE_DISPLAY:-0}
 renderer_pid=
 
 cleanup() {
@@ -28,8 +28,8 @@ mkdir -p "$capture_dir"
 cd "$capture_dir"
 
 "$dist_dir/bin/asterctl" --simulate --save \
-    --config "$dist_dir/share/marian-lab/dashboard.json" \
-    --config-dir "$dist_dir/share/marian-lab" \
+    --config "$dist_dir/share/home-lab/dashboard.json" \
+    --config-dir "$dist_dir/share/home-lab" \
     --font-dir /usr/share/fonts/truetype/dejavu \
     --sensor-path "$root_dir/tests/fixtures/sensors" &
 renderer_pid=$!
