@@ -74,12 +74,12 @@ assign_health_tokens() {
     eval "${prefix}_ok='' ${prefix}_warning='' ${prefix}_critical=''"
     case "$state" in
         ok) eval "${prefix}_ok='✓ OK'" ;;
-        warning) eval "${prefix}_warning='! WARNING'" ;;
+        warning) eval "${prefix}_warning='● Warn'" ;;
         critical)
             if [ $((now % 2)) -eq 0 ]; then
-                eval "${prefix}_critical='● CRITICAL'"
+                eval "${prefix}_critical='● Err'"
             else
-                eval "${prefix}_critical='  CRITICAL'"
+                eval "${prefix}_critical='  Err'"
             fi
             ;;
     esac

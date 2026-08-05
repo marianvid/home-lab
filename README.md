@@ -34,10 +34,19 @@ details/back—and does not extract or store biometric templates.
 
 </details>
 
+<details>
+<summary>Health-state examples</summary>
+
+| Warning | Error — dot visible | Error — dot hidden |
+| --- | --- | --- |
+| ![Warning state](gallery/health-warning.png) | ![Error pulse on](gallery/health-error-on.png) | ![Error pulse off](gallery/health-error-off.png) |
+
+</details>
+
 ## Highlights
 
 - Health, Compute, adaptive Storage, Network and Services panels.
-- Green/amber/red states with a pulsing critical indicator.
+- Compact OK/Warn/Err states with a slowly pulsing red error dot.
 - NVMe SMART temperature, wear, bytes written, hours and error information.
 - Dynamic storage cards without placeholders for absent devices.
 - Persistent, low-latency tap/hold input through a patched libfprint driver.
@@ -55,6 +64,9 @@ details/back—and does not extract or store biometric templates.
 | Sensor tap in menu | Toggle Reboot / Shutdown |
 | Sensor hold in menu | Confirm selection |
 | Five seconds without input | Cancel and restore previous panel |
+
+Compact Health states preserve card space: `✓ OK`, a fixed amber `● Warn`, and
+red `Err` with a slowly blinking dot.
 
 ## Architecture
 

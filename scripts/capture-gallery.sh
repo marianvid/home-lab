@@ -15,6 +15,7 @@ cleanup() {
     rm -f /run/aoostar-next-panel
     if [ "$manage_display" = 1 ]; then
         systemctl start aoostar-display.service
+        systemctl start mafp-next-panel.service aoostar-power-button.service
     fi
 }
 trap cleanup EXIT

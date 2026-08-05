@@ -14,6 +14,7 @@ panels use `Parent > Child` names, allowing navigation to discover them without
 hard-coded panel counts. Missing removable disks are omitted, not reported as
 failed placeholders.
 
-Health states are OK, Warning and Critical. Unavailable data is never silently
-presented as a healthy zero. Critical conditions include SMART/media failures,
-unsafe temperature and required-service failure.
+Health states are rendered compactly as `✓ OK`, amber `● Warn`, and red `Err`
+with a slowly blinking dot. Unavailable data is never silently presented as a
+healthy zero. Error conditions include SMART/media failures, unsafe temperature
+and required-service failure.

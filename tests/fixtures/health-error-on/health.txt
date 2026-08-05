@@ -1,0 +1,16 @@
+lab_health_compute_ok: ✓ OK
+lab_health_compute_warning:
+lab_health_compute_critical:
+lab_health_compute_summary: CPU 51°C · RAM 18%
+lab_health_storage_ok: ✓ OK
+lab_health_storage_warning:
+lab_health_storage_critical:
+lab_health_storage_summary: 2 disks · MAX 45°C
+lab_health_network_ok: ✓ OK
+lab_health_network_warning:
+lab_health_network_critical:
+lab_health_network_summary: LINK 2.5G · ONLINE
+lab_health_services_ok:
+lab_health_services_warning:
+lab_health_services_critical: ● Err
+lab_health_services_summary: PVE 4/4 · LAB 3/5
