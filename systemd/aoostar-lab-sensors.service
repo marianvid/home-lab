@@ -1,5 +1,5 @@
 [Unit]
-Description=MARIAN LAB Proxmox sensor provider
+Description=HOME LAB Proxmox sensor provider
 After=aoostar-sysinfo.service
 Requires=aoostar-sysinfo.service
 

@@ -37,7 +37,7 @@ Click any panel to open the full-resolution image.
     <td width="50%" align="center">
       <a href="services.png"><img src="services.png" width="460" alt="Services panel"></a><br>
       <small><em><strong>Services</strong><br>
-      Proxmox, MARIAN LAB, guests, storage, SSH and node state.</em></small>
+      Proxmox, dashboard services, guests, storage, SSH and node state.</em></small>
     </td>
     <td width="50%"></td>
   </tr>
@@ -68,17 +68,13 @@ Click any panel to open the full-resolution image.
 
 <table>
   <tr>
-    <td width="33%" align="center">
-      <a href="health-warning.png"><img src="health-warning.png" width="300" alt="Warning state"></a><br>
+    <td width="50%" align="center">
+      <a href="health-warning.png"><img src="health-warning.png" width="460" alt="Warning state"></a><br>
       <small><em><strong>Warn</strong><br>Fixed amber dot.</em></small>
     </td>
-    <td width="33%" align="center">
-      <a href="health-error-on.png"><img src="health-error-on.png" width="300" alt="Error pulse visible"></a><br>
+    <td width="50%" align="center">
+      <a href="health-error-on.png"><img src="health-error-on.png" width="460" alt="Error pulse visible"></a><br>
       <small><em><strong>Err — pulse on</strong><br>Red dot visible.</em></small>
-    </td>
-    <td width="33%" align="center">
-      <a href="health-error-off.png"><img src="health-error-off.png" width="300" alt="Error pulse hidden"></a><br>
-      <small><em><strong>Err — pulse off</strong><br>Text remains readable.</em></small>
     </td>
   </tr>
 </table>
@@ -97,10 +93,7 @@ cancels after five seconds without input.
       <a href="system-actions-reboot.png"><img src="system-actions-reboot.png" width="460" alt="Reboot selected"></a><br>
       <small><em><strong>Reboot selected</strong></em></small>
     </td>
-    <td width="50%" align="center">
-      <a href="system-actions-shutdown.png"><img src="system-actions-shutdown.png" width="460" alt="Shutdown selected"></a><br>
-      <small><em><strong>Shutdown selected</strong></em></small>
-    </td>
+    <td width="50%"></td>
   </tr>
 </table>
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=MARIAN LAB dynamic LCD dashboard
+Description=HOME LAB dynamic LCD dashboard
 After=aoostar-sysinfo.service aoostar-lab-sensors.service
 Requires=aoostar-sysinfo.service aoostar-lab-sensors.service
 

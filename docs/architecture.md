@@ -4,7 +4,7 @@ Small systemd-supervised components keep collection, rendering and input
 separate:
 
 1. `aster-sysinfo` publishes generic system metrics.
-2. MARIAN LAB sensors add Proxmox, network, mount and NVMe SMART state.
+2. Dashboard sensors add Proxmox, network, mount and NVMe SMART state.
 3. Patched `asterctl` renders the selected panel.
 4. A persistent MAFP helper turns touch duration into tap/hold triggers.
 5. A power-event helper opens the guarded System Actions modal.

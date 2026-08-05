@@ -6,7 +6,7 @@
 - Tested commit: `2f4d95957d2d61f9fe5cd27e4cf14bd2ae566f63`
 - License: MIT OR Apache-2.0
 
-The MARIAN LAB patch adds manual hierarchical navigation, responsive triggers,
+The dashboard patch adds manual hierarchical navigation, responsive triggers,
 guarded system actions and adaptive Storage rendering.
 
 ## libfprint

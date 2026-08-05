@@ -89,7 +89,7 @@ cp -a "$root_dir/systemd/." "$dist_dir/systemd/"
 cp -a "$root_dir/dashboard/config/." "$dist_dir/config/"
 
 cat > "$dist_dir/BUILD-METADATA.txt" <<EOF
-MARIAN LAB build
+Dashboard build
 aoostar-rs=$aoostar_commit
 libfprint=$libfprint_commit
 rustc=$(rustc --version)

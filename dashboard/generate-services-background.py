@@ -29,7 +29,7 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 image = Image.new("RGB", (W, H), BG)
 draw = ImageDraw.Draw(image)
-draw.text((28, 18), "MARIAN LAB  /  SERVICES", font=font(26, True), fill=TEXT)
+draw.text((28, 18), "HOME LAB  /  SERVICES", font=font(26, True), fill=TEXT)
 draw.text((930, 21), "5/5", font=font(22, True), fill=MUTED, anchor="ra")
 draw.line((28, 58, 932, 58), fill=LINE, width=2)
 

@@ -14,12 +14,12 @@ sensor of the AOOSTAR GEM12+ Pro mini PC.
 > and documentation were developed with AI assistance and human review. See
 > [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 
-MARIAN LAB turns otherwise underused hardware into a local headless-server
+The project turns otherwise underused hardware into a local headless-server
 console. It presents live health, compute, storage, network and service state.
 The fingerprint reader is used only as a touch controller—tap for next, hold for
 details/back—and does not extract or store biometric templates.
 
-![MARIAN LAB Health dashboard](gallery/health.png)
+![HOME LAB Health dashboard](gallery/health.png)
 
 <details>
 <summary>Dashboard gallery</summary>
@@ -41,9 +41,9 @@ details/back—and does not extract or store biometric templates.
 <details>
 <summary>Health-state examples</summary>
 
-| Warning | Error — dot visible | Error — dot hidden |
-| --- | --- | --- |
-| ![Warning state](gallery/health-warning.png) | ![Error pulse on](gallery/health-error-on.png) | ![Error pulse off](gallery/health-error-off.png) |
+| Warning | Error — pulsing dot |
+| --- | --- |
+| ![Warning state](gallery/health-warning.png) | ![Error pulse on](gallery/health-error-on.png) |
 
 </details>
 

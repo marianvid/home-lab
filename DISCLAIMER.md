@@ -1,6 +1,6 @@
 # Safety and responsibility notice
 
-MARIAN LAB is experimental hardware-facing software. **Use it entirely at your
+This project is experimental hardware-facing software. **Use it entirely at your
 own risk and responsibility.** It is not an official or vendor-supported
 AOOSTAR, AMD, Proxmox, Corsair, Lexar, Microarray, libfprint or aoostar-rs product.
 
