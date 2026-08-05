@@ -43,6 +43,8 @@ Click any panel to open the full-resolution image.
   </tr>
 </table>
 
+<br><br>
+
 ## Storage details
 
 <table>
@@ -59,6 +61,8 @@ Click any panel to open the full-resolution image.
     </td>
   </tr>
 </table>
+
+<br><br>
 
 ## Health-state language
 
@@ -78,6 +82,8 @@ Click any panel to open the full-resolution image.
     </td>
   </tr>
 </table>
+
+<br><br>
 
 ## Guarded System Actions
 
