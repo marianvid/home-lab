@@ -77,6 +77,16 @@ format_capacity_pair() {
     }'
 }
 
+storage_model_label() {
+    device=$1
+    cache=$2
+    fallback=$3
+    model=$(smart_field "$cache" "Model Number")
+    [ -n "$model" ] || model=$(lsblk -dn -o MODEL "$device" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/[[:space:]][[:space:]]*/ /g')
+    [ -n "$model" ] || model=$fallback
+    printf '%.24s' "$model"
+}
+
 assign_health_tokens() {
     prefix=$1
     state=$2
@@ -264,7 +274,7 @@ EOF
     lexar_name=""; lexar_temp_display=""; lexar_ok=""; lexar_warning=""; lexar_critical=""
     corsair_name=""; corsair_temp_display=""; corsair_ok=""; corsair_warning=""; corsair_critical=""
     if [ "$lexar_present" -eq 1 ]; then
-        lexar_name="INT 1 · LEXAR NM790"
+        lexar_name="INT 1 · $(storage_model_label "$lexar_dev" "$lexar_cache" "NVME")"
         lexar_temp_display="$lexar_temp"
         case "$lexar_health" in
             ok) lexar_ok="✓" ;;
@@ -273,7 +283,7 @@ EOF
         esac
     fi
     if [ "$corsair_present" -eq 1 ]; then
-        corsair_name="EXT 1 · CORSAIR EX400U"
+        corsair_name="EXT 1 · $(storage_model_label "$corsair_dev" "$corsair_cache" "USB4 NVME")"
         corsair_temp_display="$corsair_temp"
         case "$corsair_health" in
             ok) corsair_ok="✓" ;;

@@ -24,10 +24,10 @@ lab_memory_temp: 43
 lab_uptime: 12d 4h
 lab_storage_layout: 11
 lab_storage_counts: 1 INT · 1 EXT
-lab_storage_int1_name: INT 1 · NVME
+lab_storage_int1_name: INT 1 · LEXAR NM790
 lab_storage_int1_temp: 43
 lab_storage_int1_ok: ✓ OK
-lab_storage_ext1_name: EXT 1 · USB4 NVME
+lab_storage_ext1_name: EXT 1 · CORSAIR EX400U
 lab_storage_ext1_temp: 45
 lab_storage_ext1_ok: ✓ OK
 lab_lexar_temp: 43
