@@ -177,6 +177,52 @@ while true; do
     swap_percent=$(awk '/SwapTotal:/ {t=$2} /SwapFree:/ {f=$2} END {if(t) printf "%.1f", (t-f)*100/t; else print 0}' /proc/meminfo)
     load_one=$(awk '{print $1}' /proc/loadavg)
 
+    nvidia_present=0
+    nvidia_name=""; nvidia_temp="N/A"; nvidia_util="N/A"; nvidia_vram="N/A"
+    nvidia_power="N/A"; nvidia_fan="N/A"; nvidia_driver="N/A"; nvidia_cuda="N/A"
+    nvidia_pstate="N/A"; nvidia_clock="N/A"; nvidia_mem_clock="N/A"
+    nvidia_persistence="N/A"; nvidia_ecc="N/A"; nvidia_uuid="N/A"
+    nvidia_pci="N/A"; nvidia_process="IDLE"; nvidia_process_vram="0 MiB"
+    nvidia_dcgm="N/A"; nvidia_xid=0; nvidia_health=ok
+    nvidia_snapshot=""
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia_snapshot=$(nvidia-smi \
+            --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,power.limit,fan.speed,driver_version,pstate,clocks.current.graphics,clocks.current.memory,persistence_mode,ecc.mode.current,uuid,pci.bus_id \
+            --format=csv,noheader,nounits 2>/dev/null | head -n1)
+    fi
+    if [ -n "$nvidia_snapshot" ]; then
+        nvidia_present=1
+        mapfile -t nvidia_fields < <(printf '%s\n' "$nvidia_snapshot" | awk -F, '{for (i=1; i<=NF; i++) {gsub(/^[ \t]+|[ \t]+$/, "", $i); print $i}}')
+        nvidia_name=${nvidia_fields[0]:-NVIDIA GPU}
+        nvidia_temp=${nvidia_fields[1]:-N/A}
+        nvidia_util=${nvidia_fields[2]:-N/A}
+        nvidia_memory_used=${nvidia_fields[3]:-N/A}; nvidia_memory_total=${nvidia_fields[4]:-N/A}
+        nvidia_vram="${nvidia_memory_used:-N/A} / ${nvidia_memory_total:-N/A} MiB"
+        nvidia_power_draw=${nvidia_fields[5]:-N/A}; nvidia_power_limit=${nvidia_fields[6]:-N/A}
+        nvidia_power="${nvidia_power_draw:-N/A} / ${nvidia_power_limit:-N/A} W"
+        nvidia_fan=${nvidia_fields[7]:-N/A}
+        nvidia_driver=${nvidia_fields[8]:-N/A}
+        nvidia_cuda=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA UMD Version: \([0-9.]*\).*/\1/p' | head -n1); nvidia_cuda=${nvidia_cuda:-N/A}
+        nvidia_pstate=${nvidia_fields[9]:-N/A}
+        nvidia_clock=${nvidia_fields[10]:-N/A}
+        nvidia_mem_clock=${nvidia_fields[11]:-N/A}
+        nvidia_persistence=${nvidia_fields[12]:-N/A}
+        nvidia_ecc=${nvidia_fields[13]:-N/A}
+        nvidia_uuid=${nvidia_fields[14]:-N/A}
+        nvidia_pci=${nvidia_fields[15]:-N/A}
+        nvidia_process_line=$(nvidia-smi --query-compute-apps=process_name,used_memory --format=csv,noheader,nounits 2>/dev/null | head -n1)
+        if [ -n "$nvidia_process_line" ]; then
+            nvidia_process=$(printf '%s' "$nvidia_process_line" | cut -d, -f1 | sed 's/^[[:space:]]*//; s#.*/##' | cut -c1-22)
+            nvidia_process_vram="$(printf '%s' "$nvidia_process_line" | cut -d, -f2 | tr -d ' ') MiB"
+        fi
+        systemctl is-active --quiet nvidia-dcgm.service && nvidia_dcgm=OK || nvidia_dcgm=DOWN
+        nvidia_xid=$(journalctl -k -b --no-pager 2>/dev/null | grep -c 'NVRM: Xid' || true)
+        [ "$nvidia_dcgm" = OK ] || nvidia_health=critical
+        [ "$nvidia_xid" -eq 0 ] || nvidia_health=critical
+        [ "${nvidia_temp%.*}" -ge 88 ] 2>/dev/null && nvidia_health=critical
+        [ "${nvidia_temp%.*}" -ge 80 ] 2>/dev/null && [ "$nvidia_health" = ok ] && nvidia_health=warning
+    fi
+
     pve_services="pveproxy pvedaemon pvestatd pve-cluster"
     lab_services="aoostar-display aoostar-lab-sensors mafp-next-panel aoostar-power-button aoostar-health-monitor"
     pve_service_total=0; pve_service_active=0
@@ -304,6 +350,8 @@ EOF
     fi
     [ "$mem_percent" -ge 95 ] 2>/dev/null && compute_health=critical
     [ "$mem_percent" -ge 85 ] 2>/dev/null && [ "$compute_health" = ok ] && compute_health=warning
+    [ "$nvidia_present" -eq 1 ] && [ "$nvidia_health" = warning ] && [ "$compute_health" = ok ] && compute_health=warning
+    [ "$nvidia_present" -eq 1 ] && [ "$nvidia_health" = critical ] && compute_health=critical
 
     storage_health=ok
     [ "$lexar_present" -eq 1 ] && [ "$lexar_health" = warning ] && storage_health=warning
@@ -328,6 +376,7 @@ EOF
     assign_health_tokens storage "$storage_health"
     assign_health_tokens network "$network_health"
     assign_health_tokens services "$services_health"
+    assign_health_tokens nvidia "$nvidia_health"
 
     lexar_name=""; lexar_temp_display=""; lexar_ok=""; lexar_warning=""; lexar_critical=""
     corsair_name=""; corsair_temp_display=""; corsair_ok=""; corsair_warning=""; corsair_critical=""
@@ -395,6 +444,30 @@ EOF
         echo "lab_uptime: $(compact_uptime)"
         echo "lab_cpu_frequency: $cpu_freq"
         echo "lab_gpu_temp: $gpu_temp"
+        echo "lab_gpu_present: $nvidia_present"
+        echo "lab_nvidia_name: $nvidia_name"
+        echo "lab_nvidia_temp: $nvidia_temp"
+        echo "lab_nvidia_util: $nvidia_util"
+        echo "lab_nvidia_vram: $nvidia_vram"
+        echo "lab_nvidia_power: $nvidia_power"
+        echo "lab_nvidia_fan: $nvidia_fan"
+        echo "lab_nvidia_driver: $nvidia_driver"
+        echo "lab_nvidia_cuda: $nvidia_cuda"
+        echo "lab_nvidia_driver_cuda: $nvidia_driver / $nvidia_cuda"
+        echo "lab_nvidia_pstate: $nvidia_pstate"
+        echo "lab_nvidia_clock: $nvidia_clock"
+        echo "lab_nvidia_mem_clock: $nvidia_mem_clock"
+        echo "lab_nvidia_persistence: $nvidia_persistence"
+        echo "lab_nvidia_ecc: $nvidia_ecc"
+        echo "lab_nvidia_uuid: $nvidia_uuid"
+        echo "lab_nvidia_pci: $nvidia_pci"
+        echo "lab_nvidia_process: $nvidia_process"
+        echo "lab_nvidia_process_vram: $nvidia_process_vram"
+        echo "lab_nvidia_dcgm: $nvidia_dcgm"
+        echo "lab_nvidia_xid: $nvidia_xid"
+        echo "lab_nvidia_ok: $nvidia_ok"
+        echo "lab_nvidia_warning: $nvidia_warning"
+        echo "lab_nvidia_critical: $nvidia_critical"
         echo "lab_memory_temp: $memory_temp"
         echo "lab_mem_percent: $mem_percent"
         echo "lab_swap_percent: $swap_percent"
@@ -402,7 +475,11 @@ EOF
         echo "lab_health_compute_ok: $compute_ok"
         echo "lab_health_compute_warning: $compute_warning"
         echo "lab_health_compute_critical: $compute_critical"
-        echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · RAM ${mem_percent}%"
+        if [ "$nvidia_present" -eq 1 ]; then
+            echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · GPU ${nvidia_temp}° · R ${mem_percent}%"
+        else
+            echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · RAM ${mem_percent}%"
+        fi
         echo "lab_health_storage_ok: $storage_ok"
         echo "lab_health_storage_warning: $storage_warning"
         echo "lab_health_storage_critical: $storage_critical"

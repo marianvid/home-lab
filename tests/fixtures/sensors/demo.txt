@@ -1,7 +1,7 @@
 lab_health_compute_ok: ✓ OK
 lab_health_compute_warning:
 lab_health_compute_critical:
-lab_health_compute_summary: CPU 51°C · RAM 18%
+lab_health_compute_summary: CPU 51°C · GPU 48°C · R 18%
 lab_health_storage_ok: ✓ OK
 lab_health_storage_warning:
 lab_health_storage_critical:
@@ -20,6 +20,30 @@ lab_mem_percent: 18
 lab_load_one: 0.42
 lab_cpu_frequency: 3.60
 lab_gpu_temp: 48
+lab_gpu_present: 1
+lab_nvidia_name: NVIDIA RTX PRO 4500 Blackwell
+lab_nvidia_temp: 48
+lab_nvidia_util: 14
+lab_nvidia_vram: 6144 / 32623 MiB
+lab_nvidia_power: 82 / 200 W
+lab_nvidia_fan: 30
+lab_nvidia_driver: 610.57.04
+lab_nvidia_cuda: 13.3
+lab_nvidia_driver_cuda: 610.57.04 / 13.3
+lab_nvidia_pstate: P2
+lab_nvidia_clock: 2385
+lab_nvidia_mem_clock: 11001
+lab_nvidia_persistence: Enabled
+lab_nvidia_ecc: Off
+lab_nvidia_uuid: GPU-documentation-fixture
+lab_nvidia_pci: 00000000:01:00.0
+lab_nvidia_process: llama-server
+lab_nvidia_process_vram: 6144 MiB
+lab_nvidia_dcgm: OK
+lab_nvidia_xid: 0
+lab_nvidia_ok: ✓ OK
+lab_nvidia_warning:
+lab_nvidia_critical:
 lab_memory_temp: 43
 lab_uptime: 12d 4h
 lab_storage_layout: 11

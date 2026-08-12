@@ -15,7 +15,8 @@ sensor of the AOOSTAR GEM12+ Pro mini PC.
 > [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 
 The project turns otherwise underused hardware into a local headless-server
-console. It presents live health, compute, storage, network and service state.
+console. It presents live health, compute, optional NVIDIA GPU, storage, network
+and service state.
 The fingerprint reader is used only as a touch controller—tap for next, hold for
 details/back—and does not extract or store biometric templates.
 
@@ -42,6 +43,10 @@ and licenses are recorded in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ![Compute panel](gallery/compute.png)
 
+![Dynamic NVIDIA GPU panel](gallery/gpu.png)
+
+![NVIDIA GPU details](gallery/gpu-details.png)
+
 ![Adaptive Storage panel](gallery/storage.png)
 
 | Internal NVMe details | External USB4/NVMe details |
@@ -65,11 +70,13 @@ and licenses are recorded in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Highlights
 
-- Health, Compute, adaptive Storage, Network and Services panels.
+- Health, Compute, dynamic NVIDIA GPU, adaptive Storage, Network and Services panels.
 - Compact OK/Warn/Err states with a slowly pulsing red error dot.
 - NVMe SMART temperature, wear, bytes written, hours, available/capacity and
   media-error information.
 - Dynamic storage cards without placeholders for absent devices.
+- Optional NVIDIA panel with temperature, utilization, VRAM, power, process,
+  DCGM health, clocks, ECC and Xid state; it disappears when no GPU is present.
 - Persistent, low-latency tap/hold input through a patched libfprint driver.
 - Guarded physical power-button menu with explicit confirmation and timeout.
 - Reproducible build from pinned upstream commits; no universal installer.
@@ -114,6 +121,7 @@ and [Privacy and security](docs/security.md).
 - LCD UART `0416:90a1`
 - Microarray MAFP reader `3274:8012`
 - Internal NVMe plus external Corsair EX400U in native USB4/NVMe mode
+- NVIDIA RTX PRO 4500 Blackwell over OCuLink (PCIe 4.0 x4), driver 610 and CUDA 13.3
 
 This is the verified reference, not a claim of compatibility with every Linux
 distribution or AOOSTAR model.

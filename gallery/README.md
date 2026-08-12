@@ -23,6 +23,18 @@ Click any panel to open the full-resolution image.
   </tr>
   <tr>
     <td width="50%" align="center">
+      <a href="gpu.png"><img src="gpu.png" width="460" alt="Dynamic NVIDIA GPU panel"></a><br>
+      <small><em><strong>NVIDIA GPU</strong><br>
+      Live temperature, load, VRAM, power, fan, workload and health.</em></small><br><br>
+    </td>
+    <td width="50%" align="center">
+      <a href="gpu-details.png"><img src="gpu-details.png" width="460" alt="NVIDIA GPU details"></a><br>
+      <small><em><strong>GPU details</strong><br>
+      Driver, CUDA, clocks, persistence, ECC, PCI address and Xid errors.</em></small><br><br>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
       <a href="storage.png"><img src="storage.png" width="460" alt="Adaptive Storage panel"></a><br>
       <small><em><strong>Storage</strong><br>
       Adaptive internal/external device layout.</em></small><br><br>

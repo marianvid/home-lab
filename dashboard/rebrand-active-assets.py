@@ -26,6 +26,7 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 titles = {
     "health.png": "HOME LAB  /  HEALTH",
     "compute.png": "HOME LAB  /  COMPUTE",
+    "gpu.png": "HOME LAB  /  GPU",
     "network.png": "HOME LAB  /  NETWORK",
     "services.png": "HOME LAB  /  SERVICES",
     "system-actions-reboot.png": "HOME LAB  /  SYSTEM ACTIONS",

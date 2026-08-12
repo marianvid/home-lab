@@ -9,10 +9,16 @@ separate:
 4. A persistent MAFP helper turns touch duration into tap/hold triggers.
 5. A power-event helper opens the guarded System Actions modal.
 
-Top-level panels are Health, Compute, Storage, Network and Services. Child
-panels use `Parent > Child` names, allowing navigation to discover them without
-hard-coded panel counts. Missing removable disks are omitted, not reported as
-failed placeholders.
+Top-level panels are Health, Compute, optional GPU, Storage, Network and
+Services. Child panels use `Parent > Child` names, allowing navigation to
+discover them without hard-coded panel counts. Missing removable disks are
+omitted, not reported as failed placeholders.
+
+The GPU panel follows the same model: `lab_gpu_present` activates both its
+overview and detail panels only when `nvidia-smi` can communicate with a GPU.
+DCGM service state, boot-local Xid events and temperature feed the shared
+Compute health state. A disconnected optional GPU is omitted rather than shown
+as an empty placeholder.
 
 Each storage detail panel prioritizes temperature, real used space, SMART,
 wear, data written, power-on time, available/total filesystem capacity and
