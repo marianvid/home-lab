@@ -18,10 +18,10 @@ index 71c2536..0329006 100644
 +        if active_panel_idx > active_panel_count {
              active_panel_idx = 1;
          }
-
+ 
 @@ -272,7 +280,7 @@ pub enum SensorDirection {
  }
-
+ 
  /// Custom DIY panel definition
 -#[derive(Debug, Serialize, Deserialize)]
 +#[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +30,7 @@ index 71c2536..0329006 100644
      pub id: Option<String>,
 @@ -320,7 +328,7 @@ impl Panel {
  }
-
+ 
  /// One Data Display Unit
 -#[derive(Debug, Serialize, Deserialize)]
 +#[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ index 71c2536..0329006 100644
  pub struct Sensor {
      /// Sensor mode: text, fan, progress, pointer
 diff --git a/crates/asterctl/src/main.rs b/crates/asterctl/src/main.rs
-index c855cf2..f77d43c 100644
+index c855cf2..11a265f 100644
 --- a/crates/asterctl/src/main.rs
 +++ b/crates/asterctl/src/main.rs
 @@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
@@ -47,7 +47,7 @@ index c855cf2..f77d43c 100644
  use std::thread::sleep;
 +use std::process::Command;
  use std::time::{Duration, Instant};
-
+ 
  /// AOOSTAR WTR MAX and GEM12+ PRO screen control.
 @@ -267,14 +268,40 @@ fn run_sensor_panel<B: Into<PathBuf>>(
          .switch_time
@@ -75,7 +75,7 @@ index c855cf2..f77d43c 100644
 +        .find(|candidate| candidate.friendly_name() == "System Actions Shutdown")
 +        .cloned()
 +        .ok_or(anyhow!("Missing System Actions Shutdown panel"))?;
-
+ 
      // panel switching loop
      loop {
 -        let panel = cfg
@@ -91,17 +91,26 @@ index c855cf2..f77d43c 100644
 +        let mut system_actions_deadline: Option<Instant> = None;
 +        let mut saved_panel: Option<Panel> = None;
 +        let mut saved_level = 0usize;
-
+ 
          info!("Switching panel: {}", panel.friendly_name());
          let panel_switch_time = Instant::now();
-@@ -290,15 +317,167 @@ fn run_sensor_panel<B: Into<PathBuf>>(
-
+@@ -290,15 +317,178 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+ 
              // Keeping the read lock during panel rendering should be ok, otherwise we could always clone the HashMap
              let values = sensor_values.read().expect("RwLock is poisoned");
 -            update_panel(screen, &mut renderer, panel, &values)?;
 +            let storage_layout_name = values
 +                .get("lab_storage_layout")
 +                .map(|layout| format!("Storage Layout {layout}"));
++            let external_sata_present = values
++                .get("lab_storage_ext2_present")
++                .is_some_and(|value| value == "1");
++            if panel.friendly_name() == "Storage > External SATA"
++                && !external_sata_present
++            {
++                panel = overview_panel.clone();
++                current_level = 0;
++            }
 +            let render_panel = if panel.friendly_name() == "Storage" {
 +                storage_layout_name
 +                    .as_deref()
@@ -116,7 +125,7 @@ index c855cf2..f77d43c 100644
 +            };
 +            update_panel(screen, &mut renderer, render_panel, &values)?;
              drop(values);
-
+ 
              let elapsed = upd_start_time.elapsed();
 +            // Keep the normal render interval, but wake quickly for gestures.
              if refresh > elapsed {
@@ -132,9 +141,8 @@ index c855cf2..f77d43c 100644
 +                    let remaining = deadline.saturating_duration_since(Instant::now());
 +                    sleep(remaining.min(Duration::from_millis(50)));
 +                }
-             }
-
--            if panel_switch_time.elapsed() >= switch_time {
++            }
++
 +            let next_requested = fs::remove_file(next_panel_trigger).is_ok();
 +            let details_requested = fs::remove_file(details_panel_trigger).is_ok();
 +            let root_requested = fs::remove_file(root_panel_trigger).is_ok();
@@ -217,6 +225,7 @@ index c855cf2..f77d43c 100644
 +                    let name = candidate.friendly_name();
 +                    name.starts_with(&child_prefix)
 +                        && name.matches(" > ").count() == child_level
++                        && (name != "Storage > External SATA" || external_sata_present)
 +                });
 +                if let Some(child) = child {
 +                    panel = child.clone();
@@ -247,6 +256,7 @@ index c855cf2..f77d43c 100644
 +                        let name = candidate.friendly_name();
 +                        name.starts_with(&sibling_prefix)
 +                            && name.matches(" > ").count() == current_level
++                            && (name != "Storage > External SATA" || external_sata_present)
 +                    })
 +                    .cloned()
 +                    .collect();
@@ -259,9 +269,10 @@ index c855cf2..f77d43c 100644
 +                    refresh_count = 1;
 +                }
 +                continue;
-+            }
-+
+             }
+ 
+-            if panel_switch_time.elapsed() >= switch_time {
 +            if switch_time.is_some_and(|duration| panel_switch_time.elapsed() >= duration) {
                  break;
              }
-
+ 

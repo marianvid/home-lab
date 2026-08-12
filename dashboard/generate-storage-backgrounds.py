@@ -22,7 +22,7 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     raise FileNotFoundError("Install DejaVu Sans or Arial to render assets")
 
 
-def render(filename: str, title: str, accent: str) -> None:
+def render(filename: str, title: str, accent: str, labels=None) -> None:
     image = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(image)
     draw.text((28, 18), title, font=font(26, True), fill=TEXT)
@@ -33,7 +33,7 @@ def render(filename: str, title: str, accent: str) -> None:
         (28, 200, 245, 312), (258, 200, 475, 312),
         (488, 200, 705, 312), (718, 200, 932, 312),
     ]
-    labels = [
+    labels = labels or [
         "TEMPERATURE", "SPACE USED", "SMART", "WEAR",
         "DATA WRITTEN", "POWER-ON", "AVL / CAP", "MEDIA ERRORS",
     ]
@@ -48,3 +48,12 @@ def render(filename: str, title: str, accent: str) -> None:
 
 render("lexar.png", "STORAGE  /  LEXAR NM790", BLUE)
 render("corsair.png", "STORAGE  /  CORSAIR EX400U USB4", TEAL)
+render(
+    "external-device.png",
+    "STORAGE  /  EXTERNAL SATA",
+    TEAL,
+    [
+        "TEMPERATURE", "SPACE USED", "SMART", "CONNECTION",
+        "POWER-ON", "FIRMWARE", "AVL / CAP", "REALLOC / PEND / UNC",
+    ],
+)
