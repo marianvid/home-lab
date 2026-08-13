@@ -38,7 +38,7 @@ index 71c2536..0329006 100644
  pub struct Sensor {
      /// Sensor mode: text, fan, progress, pointer
 diff --git a/crates/asterctl/src/main.rs b/crates/asterctl/src/main.rs
-index c855cf2..766b1dc 100644
+index c855cf2..c3823e5 100644
 --- a/crates/asterctl/src/main.rs
 +++ b/crates/asterctl/src/main.rs
 @@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
@@ -113,7 +113,7 @@ index c855cf2..766b1dc 100644
  
          info!("Switching panel: {}", panel.friendly_name());
          let panel_switch_time = Instant::now();
-@@ -290,15 +336,203 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+@@ -290,15 +336,214 @@ fn run_sensor_panel<B: Into<PathBuf>>(
  
              // Keeping the read lock during panel rendering should be ok, otherwise we could always clone the HashMap
              let values = sensor_values.read().expect("RwLock is poisoned");
@@ -124,6 +124,9 @@ index c855cf2..766b1dc 100644
 +            let external_sata_present = values
 +                .get("lab_storage_ext2_present")
 +                .is_some_and(|value| value == "1");
++            let internal_nvme2_present = values
++                .get("lab_storage_int2_present")
++                .is_some_and(|value| value == "1");
 +            let gpu_present = values
 +                .get("lab_gpu_present")
 +                .is_some_and(|value| value == "1");
@@ -132,6 +135,12 @@ index c855cf2..766b1dc 100644
 +            }
 +            if panel.friendly_name() == "Storage > External SATA"
 +                && !external_sata_present
++            {
++                panel = overview_panel.clone();
++                current_level = 0;
++            }
++            if panel.friendly_name() == "Storage > Lexar 2"
++                && !internal_nvme2_present
 +            {
 +                panel = overview_panel.clone();
 +                current_level = 0;
@@ -270,6 +279,7 @@ index c855cf2..766b1dc 100644
 +                    name.starts_with(&child_prefix)
 +                        && name.matches(" > ").count() == child_level
 +                        && (name != "Storage > External SATA" || external_sata_present)
++                        && (name != "Storage > Lexar 2" || internal_nvme2_present)
 +                });
 +                if let Some(child) = child {
 +                    panel = child.clone();
@@ -301,6 +311,7 @@ index c855cf2..766b1dc 100644
 +                        name.starts_with(&sibling_prefix)
 +                            && name.matches(" > ").count() == current_level
 +                            && (name != "Storage > External SATA" || external_sata_present)
++                            && (name != "Storage > Lexar 2" || internal_nvme2_present)
 +                    })
 +                    .cloned()
 +                    .collect();

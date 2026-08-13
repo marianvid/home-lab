@@ -14,6 +14,11 @@ Services. Child panels use `Parent > Child` names, allowing navigation to
 discover them without hard-coded panel counts. Missing removable disks are
 omitted, not reported as failed placeholders.
 
+Internal NVMe slots are enumerated at runtime. The configured system NVMe stays
+`INT 1`; an additional NVMe becomes `INT 2` and gets independent SMART,
+temperature, capacity and detail-panel data. Device paths are resolved before
+comparison so an external USB4 NVMe is never mistaken for an internal slot.
+
 The GPU panel follows the same model: `lab_gpu_present` activates both its
 overview and detail panels only when `nvidia-smi` can communicate with a GPU.
 DCGM service state, boot-local Xid events and temperature feed the shared

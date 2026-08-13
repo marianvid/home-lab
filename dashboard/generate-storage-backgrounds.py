@@ -47,6 +47,7 @@ def render(filename: str, title: str, accent: str, labels=None) -> None:
 
 
 render("lexar.png", "STORAGE  /  LEXAR NM790", BLUE)
+render("lexar2.png", "STORAGE  /  LEXAR 2", BLUE)
 render("corsair.png", "STORAGE  /  CORSAIR EX400U USB4", TEAL)
 render(
     "external-device.png",

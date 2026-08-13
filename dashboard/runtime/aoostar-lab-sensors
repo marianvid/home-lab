@@ -244,10 +244,12 @@ while true; do
     failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | awk 'NF {n++} END {print n+0}')
     ssh_state=$(systemctl is-active ssh 2>/dev/null || true); [ "$ssh_state" = active ] && ssh_state=RUNNING || ssh_state=DOWN
 
-    lexar_temp=$(value_from_sysinfo temperature_nvme_Composite_Lexar_SSD_NM790_4TB); lexar_temp=${lexar_temp:-0}
     corsair_temp=$(value_from_sysinfo temperature_nvme_Composite_Corsair_EX400U); corsair_temp=${corsair_temp:-0}
     lexar_dev=$internal_device
+    lexar_real=$(readlink -f "$lexar_dev" 2>/dev/null || true)
     corsair_dev=$external_device
+    corsair_real=$(readlink -f "$corsair_dev" 2>/dev/null || true)
+    lexar2_dev=$(lsblk -dpno PATH,TYPE,TRAN 2>/dev/null | awk -v primary="$lexar_real" -v external="$corsair_real" '$2=="disk" && $3=="nvme" && $1!=primary && $1!=external {print $1; exit}')
     ext2_dev=$(lsblk -dpno PATH,TYPE,TRAN 2>/dev/null | awk -v known="$corsair_dev" '$2=="disk" && $3=="usb" && $1!=known {print $1; exit}')
     lexar_total_bytes=$(blockdev --getsize64 "$lexar_dev" 2>/dev/null || echo 0)
     lexar_root_used=$(df -B1 --output=used / 2>/dev/null | awk 'NR==2 {print $1+0}')
@@ -257,6 +259,17 @@ while true; do
     lexar_used=$(format_used_percent "$lexar_used_bytes" "$lexar_total_bytes")
     lexar_available_bytes=$((lexar_total_bytes-lexar_used_bytes))
     lexar_capacity=$(format_capacity_pair "$lexar_available_bytes" "$lexar_total_bytes")
+    lexar2_total_bytes=$(blockdev --getsize64 "$lexar2_dev" 2>/dev/null || echo 0)
+    lexar2_mount=$(lsblk -nrpo MOUNTPOINT "$lexar2_dev" 2>/dev/null | awk 'NF {print; exit}')
+    read -r lexar2_used_bytes lexar2_available_bytes lexar2_capacity_bytes <<EOF
+$(df -B1 --output=used,avail,size "$lexar2_mount" 2>/dev/null | awk 'NR==2 {print $1+0, $2+0, $3+0}')
+EOF
+    lexar2_capacity=$(format_capacity_pair "${lexar2_available_bytes:--1}" "${lexar2_capacity_bytes:-$lexar2_total_bytes}")
+    if [ -n "$lexar2_mount" ] && [ -n "${lexar2_available_bytes:-}" ]; then
+        lexar2_used=$(format_used_percent "$lexar2_used_bytes" "$lexar2_capacity_bytes")
+    else
+        lexar2_used="N/A"
+    fi
     corsair_total_bytes=$(blockdev --getsize64 "$corsair_dev" 2>/dev/null || echo 0)
     corsair_used_bytes=$(df -B1 --output=used "$external_mount" 2>/dev/null | awk 'NR==2 {print $1+0}')
     corsair_used=$(format_used_percent "${corsair_used_bytes:-0}" "$corsair_total_bytes")
@@ -265,9 +278,22 @@ $(df -B1 --output=avail,size "$external_mount" 2>/dev/null | awk 'NR==2 {print $
 EOF
     corsair_capacity=$(format_capacity_pair "${corsair_available_bytes:-0}" "${corsair_capacity_bytes:-0}")
     lexar_cache="$smart_cache_dir/lexar-smart.txt"
+    lexar2_cache="$smart_cache_dir/lexar2-smart.txt"
     corsair_cache="$smart_cache_dir/corsair-smart.txt"
     ext2_cache="$smart_cache_dir/ext2-smart.txt"
     refresh_smart_cache "$lexar_dev" "$lexar_cache" "$now"
+    if [ -n "$lexar2_dev" ]; then
+        lexar2_identity=$(lsblk -dn -o MODEL,SERIAL "$lexar2_dev" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]][[:space:]]*/ /g; s/[[:space:]]*$//')
+        lexar2_identity_file="$smart_cache_dir/lexar2.identity"
+        old_lexar2_identity=$(cat "$lexar2_identity_file" 2>/dev/null || true)
+        if [ "$lexar2_identity" != "$old_lexar2_identity" ]; then
+            rm -f "$lexar2_cache"
+            printf '%s\n' "$lexar2_identity" > "$lexar2_identity_file"
+        fi
+        refresh_smart_cache "$lexar2_dev" "$lexar2_cache" "$now"
+    else
+        rm -f "$lexar2_cache" "$smart_cache_dir/lexar2.identity"
+    fi
     refresh_smart_cache "$corsair_dev" "$corsair_cache" "$now"
     ext2_sleeping=0
     if [ -n "$ext2_dev" ]; then
@@ -285,20 +311,28 @@ EOF
     fi
 
     lexar_smart=$(smart_field "$lexar_cache" "SMART overall-health self-assessment test result"); lexar_smart=${lexar_smart/PASSED/OK}; lexar_smart=${lexar_smart:-N/A}
+    lexar_temp=$(smart_field "$lexar_cache" "Temperature"); lexar_temp=${lexar_temp%% *}; lexar_temp=${lexar_temp:-N/A}
+    lexar2_smart=$(smart_field "$lexar2_cache" "SMART overall-health self-assessment test result"); lexar2_smart=${lexar2_smart/PASSED/OK}; lexar2_smart=${lexar2_smart:-N/A}
+    lexar2_temp=$(smart_field "$lexar2_cache" "Temperature"); lexar2_temp=${lexar2_temp%% *}; lexar2_temp=${lexar2_temp:-N/A}
     corsair_smart=$(smart_field "$corsair_cache" "SMART overall-health self-assessment test result"); corsair_smart=${corsair_smart/PASSED/OK}; corsair_smart=${corsair_smart:-N/A}
     lexar_wear=$(without_percent "$(smart_field "$lexar_cache" "Percentage Used")"); lexar_wear=${lexar_wear:-N/A}
+    lexar2_wear=$(without_percent "$(smart_field "$lexar2_cache" "Percentage Used")"); lexar2_wear=${lexar2_wear:-N/A}
     corsair_wear=$(without_percent "$(smart_field "$corsair_cache" "Percentage Used")"); corsair_wear=${corsair_wear:-N/A}
     lexar_fw=$(smart_field "$lexar_cache" "Firmware Version"); lexar_fw=${lexar_fw:-N/A}
     corsair_fw=$(smart_field "$corsair_cache" "Firmware Version"); corsair_fw=${corsair_fw:-N/A}
     lexar_read=$(smart_bracket_value "$lexar_cache" "Data Units Read"); lexar_read=${lexar_read:-N/A}
     corsair_read=$(smart_bracket_value "$corsair_cache" "Data Units Read"); corsair_read=${corsair_read:-N/A}
     lexar_written=$(smart_bracket_value "$lexar_cache" "Data Units Written"); lexar_written=${lexar_written:-N/A}
+    lexar2_written=$(smart_bracket_value "$lexar2_cache" "Data Units Written"); lexar2_written=${lexar2_written:-N/A}
     corsair_written=$(smart_bracket_value "$corsair_cache" "Data Units Written"); corsair_written=${corsair_written:-N/A}
     lexar_hours=$(smart_field "$lexar_cache" "Power On Hours"); lexar_hours=${lexar_hours:-N/A}
+    lexar2_hours=$(smart_field "$lexar2_cache" "Power On Hours"); lexar2_hours=${lexar2_hours:-N/A}
     corsair_hours=$(smart_field "$corsair_cache" "Power On Hours"); corsair_hours=${corsair_hours:-N/A}
     lexar_critical_warning=$(smart_field "$lexar_cache" "Critical Warning"); lexar_critical_warning=${lexar_critical_warning:-N/A}
+    lexar2_critical_warning=$(smart_field "$lexar2_cache" "Critical Warning"); lexar2_critical_warning=${lexar2_critical_warning:-N/A}
     corsair_critical_warning=$(smart_field "$corsair_cache" "Critical Warning"); corsair_critical_warning=${corsair_critical_warning:-N/A}
     lexar_media_errors=$(smart_field "$lexar_cache" "Media and Data Integrity Errors"); lexar_media_errors=${lexar_media_errors:-N/A}
+    lexar2_media_errors=$(smart_field "$lexar2_cache" "Media and Data Integrity Errors"); lexar2_media_errors=${lexar2_media_errors:-N/A}
     corsair_media_errors=$(smart_field "$corsair_cache" "Media and Data Integrity Errors"); corsair_media_errors=${corsair_media_errors:-N/A}
     lexar_unsafe=$(smart_field "$lexar_cache" "Unsafe Shutdowns"); lexar_unsafe=${lexar_unsafe:-N/A}
     corsair_unsafe=$(smart_field "$corsair_cache" "Unsafe Shutdowns"); corsair_unsafe=${corsair_unsafe:-N/A}
@@ -313,12 +347,14 @@ EOF
     ext2_uncorrectable=$(awk '$2=="Offline_Uncorrectable" {print $10; exit}' "$ext2_cache" 2>/dev/null); ext2_uncorrectable=${ext2_uncorrectable:-N/A}
     ext2_media_errors="$ext2_reallocated/$ext2_pending/$ext2_uncorrectable"
     lexar_present=0; [ -n "$lexar_dev" ] && [ -e "$lexar_dev" ] && lexar_present=1
+    lexar2_present=0; [ -n "$lexar2_dev" ] && [ -e "$lexar2_dev" ] && lexar2_present=1
     corsair_present=0; [ -n "$corsair_dev" ] && [ -e "$corsair_dev" ] && corsair_present=1
     ext2_present=0; [ -n "$ext2_dev" ] && [ -e "$ext2_dev" ] && ext2_present=1
-    storage_int_count=$lexar_present
+    storage_int_count=$((lexar_present+lexar2_present))
     storage_ext_count=$((corsair_present+ext2_present))
 
     lexar_health=ok
+    lexar2_health=ok
     corsair_health=ok
     ext2_health=ok
     if [ "$lexar_present" -eq 1 ]; then
@@ -328,6 +364,14 @@ EOF
         [ "${lexar_temp%.*}" -ge 80 ] 2>/dev/null && lexar_health=critical
         [ "${lexar_temp%.*}" -ge 70 ] 2>/dev/null && [ "$lexar_health" = ok ] && lexar_health=warning
         if [ "$lexar_wear" = "N/A" ]; then [ "$lexar_health" = ok ] && lexar_health=warning; else [ "${lexar_wear%.*}" -ge 90 ] 2>/dev/null && [ "$lexar_health" = ok ] && lexar_health=warning; fi
+    fi
+    if [ "$lexar2_present" -eq 1 ]; then
+        if [ "$lexar2_smart" = "N/A" ]; then lexar2_health=warning; elif [ "$lexar2_smart" != "OK" ]; then lexar2_health=critical; fi
+        [ "$lexar2_critical_warning" = "0x00" ] || [ "$lexar2_critical_warning" = "0" ] || lexar2_health=critical
+        [ "$lexar2_media_errors" = "N/A" ] || [ "${lexar2_media_errors//,/}" -eq 0 ] 2>/dev/null || lexar2_health=critical
+        [ "${lexar2_temp%.*}" -ge 80 ] 2>/dev/null && lexar2_health=critical
+        [ "${lexar2_temp%.*}" -ge 70 ] 2>/dev/null && [ "$lexar2_health" = ok ] && lexar2_health=warning
+        if [ "$lexar2_wear" = "N/A" ]; then [ "$lexar2_health" = ok ] && lexar2_health=warning; else [ "${lexar2_wear%.*}" -ge 90 ] 2>/dev/null && [ "$lexar2_health" = ok ] && lexar2_health=warning; fi
     fi
     if [ "$ext2_present" -eq 1 ] && [ "$ext2_sleeping" -eq 0 ]; then
         if [ "$ext2_smart" = "N/A" ]; then ext2_health=warning; elif [ "$ext2_smart" != "OK" ]; then ext2_health=critical; fi
@@ -361,12 +405,14 @@ EOF
 
     storage_health=ok
     [ "$lexar_present" -eq 1 ] && [ "$lexar_health" = warning ] && storage_health=warning
+    [ "$lexar2_present" -eq 1 ] && [ "$lexar2_health" = warning ] && storage_health=warning
     [ "$corsair_present" -eq 1 ] && [ "$corsair_health" = warning ] && storage_health=warning
     [ "$lexar_present" -eq 1 ] && [ "$lexar_health" = critical ] && storage_health=critical
+    [ "$lexar2_present" -eq 1 ] && [ "$lexar2_health" = critical ] && storage_health=critical
     [ "$corsair_present" -eq 1 ] && [ "$corsair_health" = critical ] && storage_health=critical
     [ "$ext2_present" -eq 1 ] && [ "$ext2_health" = warning ] && storage_health=warning
     [ "$ext2_present" -eq 1 ] && [ "$ext2_health" = critical ] && storage_health=critical
-    storage_max_temp=$(printf '%s\n%s\n%s\n' "$lexar_temp" "$corsair_temp" "$ext2_temp" | awk '$1 ~ /^[0-9.]+$/ && $1+0>m {m=$1+0} END {printf "%.0f",m}')
+    storage_max_temp=$(printf '%s\n%s\n%s\n%s\n' "$lexar_temp" "$lexar2_temp" "$corsair_temp" "$ext2_temp" | awk '$1 ~ /^[0-9.]+$/ && $1+0>m {m=$1+0} END {printf "%.0f",m}')
 
     network_health=ok
     [ "$carrier" = "1" ] || network_health=critical
@@ -385,6 +431,7 @@ EOF
     assign_health_tokens nvidia "$nvidia_health"
 
     lexar_name=""; lexar_temp_display=""; lexar_ok=""; lexar_warning=""; lexar_critical=""
+    lexar2_name=""; lexar2_temp_display=""; lexar2_ok=""; lexar2_warning=""; lexar2_critical=""
     corsair_name=""; corsair_temp_display=""; corsair_ok=""; corsair_warning=""; corsair_critical=""
     ext2_name=""; ext2_temp_display=""; ext2_ok=""; ext2_warning=""; ext2_critical=""
     if [ "$lexar_present" -eq 1 ]; then
@@ -394,6 +441,15 @@ EOF
             ok) lexar_ok="✓" ;;
             warning) lexar_warning="!" ;;
             critical) [ $((now % 2)) -eq 0 ] && lexar_critical="●" || lexar_critical="" ;;
+        esac
+    fi
+    if [ "$lexar2_present" -eq 1 ]; then
+        lexar2_name="INT 2 · $(storage_model_label "$lexar2_dev" "$lexar2_cache" "NVME")"
+        lexar2_temp_display="$lexar2_temp"
+        case "$lexar2_health" in
+            ok) lexar2_ok="✓" ;;
+            warning) lexar2_warning="!" ;;
+            critical) [ $((now % 2)) -eq 0 ] && lexar2_critical="●" || lexar2_critical="" ;;
         esac
     fi
     if [ "$ext2_present" -eq 1 ]; then
@@ -519,6 +575,14 @@ EOF
         echo "lab_lexar_read_commands: $(smart_field "$lexar_cache" "Host Read Commands")"
         echo "lab_lexar_write_commands: $(smart_field "$lexar_cache" "Host Write Commands")"
         echo "lab_lexar_busy_time: $(smart_field "$lexar_cache" "Controller Busy Time") min"
+        echo "lab_lexar2_temp: $lexar2_temp"
+        echo "lab_lexar2_used: $lexar2_used"
+        echo "lab_lexar2_smart: $lexar2_smart"
+        echo "lab_lexar2_wear: $lexar2_wear"
+        echo "lab_lexar2_written: $lexar2_written"
+        echo "lab_lexar2_hours: $lexar2_hours"
+        echo "lab_lexar2_capacity: $lexar2_capacity"
+        echo "lab_lexar2_media_errors: $lexar2_media_errors"
         echo "lab_corsair_temp: $corsair_temp"
         echo "lab_corsair_used: $corsair_used"
         echo "lab_corsair_smart: $corsair_smart"
@@ -546,16 +610,17 @@ EOF
         echo "lab_storage_counts: $storage_int_count INT · $storage_ext_count EXT"
         echo "lab_storage_layout: ${storage_int_count}${storage_ext_count}"
         echo "lab_storage_int1_present: $lexar_present"
+        echo "lab_storage_int2_present: $lexar2_present"
         echo "lab_storage_int1_name: $lexar_name"
         echo "lab_storage_int1_temp: $lexar_temp_display"
         echo "lab_storage_int1_ok: $lexar_ok"
         echo "lab_storage_int1_warning: $lexar_warning"
         echo "lab_storage_int1_critical: $lexar_critical"
-        echo "lab_storage_int2_name: "
-        echo "lab_storage_int2_temp: "
-        echo "lab_storage_int2_ok: "
-        echo "lab_storage_int2_warning: "
-        echo "lab_storage_int2_critical: "
+        echo "lab_storage_int2_name: $lexar2_name"
+        echo "lab_storage_int2_temp: $lexar2_temp_display"
+        echo "lab_storage_int2_ok: $lexar2_ok"
+        echo "lab_storage_int2_warning: $lexar2_warning"
+        echo "lab_storage_int2_critical: $lexar2_critical"
         echo "lab_storage_ext1_present: $corsair_present"
         echo "lab_storage_ext1_name: $display_ext1_name"
         echo "lab_storage_ext1_temp: $display_ext1_temp"

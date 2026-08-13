@@ -74,7 +74,8 @@ and licenses are recorded in [THIRD_PARTY.md](THIRD_PARTY.md).
 - Compact OK/Warn/Err states with a slowly pulsing red error dot.
 - NVMe SMART temperature, wear, bytes written, hours, available/capacity and
   media-error information.
-- Dynamic storage cards without placeholders for absent devices.
+- Dynamic internal-NVMe and removable-storage cards without placeholders for
+  absent devices; same-model NVMe drives are distinguished by device identity.
 - Optional NVIDIA panel with temperature, utilization, VRAM, power, process,
   DCGM health, clocks, ECC and Xid state; it disappears when no GPU is present.
 - Persistent, low-latency tap/hold input through a patched libfprint driver.
