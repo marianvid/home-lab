@@ -187,7 +187,7 @@ while true; do
     nvidia_snapshot=""
     if command -v nvidia-smi >/dev/null 2>&1; then
         nvidia_snapshot=$(nvidia-smi \
-            --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,power.limit,fan.speed,driver_version,pstate,clocks.current.graphics,clocks.current.memory,persistence_mode,ecc.mode.current,uuid,pci.bus_id \
+            --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,power.limit,fan.speed,driver_version,pstate,clocks.current.graphics,clocks.current.memory,persistence_mode,ecc.mode.current,uuid,pci.bus_id,ecc.errors.corrected.aggregate.total,ecc.errors.uncorrected.aggregate.total \
             --format=csv,noheader,nounits 2>/dev/null | head -n1)
     fi
     if [ -n "$nvidia_snapshot" ]; then
@@ -197,9 +197,12 @@ while true; do
         nvidia_temp=${nvidia_fields[1]:-N/A}
         nvidia_util=${nvidia_fields[2]:-N/A}
         nvidia_memory_used=${nvidia_fields[3]:-N/A}; nvidia_memory_total=${nvidia_fields[4]:-N/A}
-        nvidia_vram="${nvidia_memory_used:-N/A} / ${nvidia_memory_total:-N/A} MiB"
+        nvidia_vram="${nvidia_memory_used:-N/A} / ${nvidia_memory_total:-N/A}"
         nvidia_power_draw=${nvidia_fields[5]:-N/A}; nvidia_power_limit=${nvidia_fields[6]:-N/A}
-        nvidia_power="${nvidia_power_draw:-N/A} / ${nvidia_power_limit:-N/A} W"
+        if [[ "$nvidia_power_draw" =~ ^[0-9.]+$ ]] && [[ "$nvidia_power_limit" =~ ^[0-9.]+$ ]]; then
+            nvidia_power=$(awk -v draw="$nvidia_power_draw" -v limit="$nvidia_power_limit" \
+                'BEGIN {printf "%.2f / %.0f", draw, limit}')
+        fi
         nvidia_fan=${nvidia_fields[7]:-N/A}
         nvidia_driver=${nvidia_fields[8]:-N/A}
         nvidia_cuda=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA UMD Version: \([0-9.]*\).*/\1/p' | head -n1); nvidia_cuda=${nvidia_cuda:-N/A}
@@ -210,6 +213,7 @@ while true; do
         nvidia_ecc=${nvidia_fields[13]:-N/A}
         nvidia_uuid=${nvidia_fields[14]:-N/A}
         nvidia_pci=${nvidia_fields[15]:-N/A}
+        nvidia_ecc_errors="${nvidia_fields[16]:-N/A} / ${nvidia_fields[17]:-N/A}"
         nvidia_process_line=$(nvidia-smi --query-compute-apps=process_name,used_memory --format=csv,noheader,nounits 2>/dev/null | head -n1)
         if [ -n "$nvidia_process_line" ]; then
             nvidia_process=$(printf '%s' "$nvidia_process_line" | cut -d, -f1 | sed 's/^[[:space:]]*//; s#.*/##' | cut -c1-22)
@@ -459,6 +463,7 @@ EOF
         echo "lab_nvidia_mem_clock: $nvidia_mem_clock"
         echo "lab_nvidia_persistence: $nvidia_persistence"
         echo "lab_nvidia_ecc: $nvidia_ecc"
+        echo "lab_nvidia_ecc_errors: $nvidia_ecc_errors"
         echo "lab_nvidia_uuid: $nvidia_uuid"
         echo "lab_nvidia_pci: $nvidia_pci"
         echo "lab_nvidia_process: $nvidia_process"
@@ -472,23 +477,23 @@ EOF
         echo "lab_mem_percent: $mem_percent"
         echo "lab_swap_percent: $swap_percent"
         echo "lab_load_one: $load_one"
-        echo "lab_health_compute_ok: $compute_ok"
+        echo "lab_health_compute_ok: ${compute_ok/ OK/}"
         echo "lab_health_compute_warning: $compute_warning"
         echo "lab_health_compute_critical: $compute_critical"
         if [ "$nvidia_present" -eq 1 ]; then
-            echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · GPU ${nvidia_temp}° · R ${mem_percent}%"
+            echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · GPU ${nvidia_temp}°"
         else
-            echo "lab_health_compute_summary: CPU ${cpu_temp_now}° · RAM ${mem_percent}%"
+            echo "lab_health_compute_summary: CPU ${cpu_temp_now}°"
         fi
-        echo "lab_health_storage_ok: $storage_ok"
+        echo "lab_health_storage_ok: ${storage_ok/ OK/}"
         echo "lab_health_storage_warning: $storage_warning"
         echo "lab_health_storage_critical: $storage_critical"
         echo "lab_health_storage_summary: $storage_detected DISKS · MAX ${storage_max_temp}°C"
-        echo "lab_health_network_ok: $network_ok"
+        echo "lab_health_network_ok: ${network_ok/ OK/}"
         echo "lab_health_network_warning: $network_warning"
         echo "lab_health_network_critical: $network_critical"
         echo "lab_health_network_summary: ↓ $down · ↑ $up Mb/s"
-        echo "lab_health_services_ok: $services_ok"
+        echo "lab_health_services_ok: ${services_ok/ OK/}"
         echo "lab_health_services_warning: $services_warning"
         echo "lab_health_services_critical: $services_critical"
         echo "lab_health_services_summary: PVE $pve_service_active/$pve_service_total · LAB $lab_service_active/$lab_service_total"

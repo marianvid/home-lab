@@ -28,7 +28,8 @@ def background(path, title, page, labels, detail=False):
     image = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(image)
     draw.text((28, 18), title, font=font(26, True), fill=TEXT)
-    draw.text((930, 21), page, font=font(22, True), fill=MUTED, anchor="ra")
+    if page:
+        draw.text((930, 21), page, font=font(22, True), fill=MUTED, anchor="ra")
     draw.line((28, 58, 932, 58), fill=LINE, width=2)
     boxes = [
         (28, 76, 245, 188), (258, 76, 475, 188), (488, 76, 705, 188), (718, 76, 932, 188),
@@ -37,9 +38,10 @@ def background(path, title, page, labels, detail=False):
     for box, label in zip(boxes, labels):
         draw.rounded_rectangle(box, radius=14, fill=CARD, outline=LINE, width=2)
         draw.text((box[0] + 14, box[1] + 10), label, font=font(21, True), fill=TEAL if detail else BLUE)
-    if not detail:
-        draw.rounded_rectangle((730, 326, 932, 365), radius=19, outline=TEAL, width=2)
-        draw.text((831, 345), "HOLD · DETAILS ›", font=font(19, True), fill=TEAL, anchor="mm")
+    if detail:
+        draw.text((932, 344), "HOLD  ·  BACK", font=font(26, True), fill=TEAL, anchor="ra")
+    else:
+        draw.text((932, 344), "HOLD  ·  DETAILS", font=font(26, True), fill=TEAL, anchor="ra")
     image.save(path)
 
 
@@ -57,11 +59,11 @@ def sensor(name, x, y, size=28, unit="", color=TEXT):
 
 
 background(ASSETS / "gpu.png", "HOME LAB  /  GPU", "3/6",
-           ["TEMPERATURE", "GPU LOAD", "VRAM USED / TOTAL", "POWER / LIMIT",
+           ["TEMPERATURE", "GPU LOAD", "VRAM (MiB)", "POWER (W)",
             "FAN", "TOP CUDA PROCESS", "DCGM", "HEALTH"])
-background(ASSETS / "gpu-details.png", "GPU  /  DETAILS", "DETAIL",
+background(ASSETS / "gpu-details.png", "GPU DETAILS", "",
            ["DRIVER / CUDA", "P-STATE", "GPU CLOCK", "MEM CLOCK",
-            "PERSISTENCE", "ECC", "PCI ADDRESS", "XID ERRORS"], detail=True)
+            "PERSISTENCE", "ECC", "ECC ERRORS (C / U)", "XID ERRORS"], detail=True)
 
 data = json.loads(CONFIG.read_text())
 data["diy"] = [p for p in data["diy"] if p["name"] not in {"GPU", "GPU > Details"}]
@@ -87,7 +89,7 @@ details = {
         sensor("lab_nvidia_driver_cuda", 136, 132, 24), sensor("lab_nvidia_pstate", 366, 132, 30),
         sensor("lab_nvidia_clock", 596, 132, 28, " MHz"), sensor("lab_nvidia_mem_clock", 825, 132, 28, " MHz"),
         sensor("lab_nvidia_persistence", 136, 256, 27), sensor("lab_nvidia_ecc", 366, 256, 27),
-        sensor("lab_nvidia_pci", 596, 256, 23), sensor("lab_nvidia_xid", 825, 256, 30),
+        sensor("lab_nvidia_ecc_errors", 596, 256, 28), sensor("lab_nvidia_xid", 825, 256, 30),
     ],
 }
 data["diy"].extend([gpu, details, *actions])
