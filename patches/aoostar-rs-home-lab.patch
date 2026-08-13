@@ -38,7 +38,7 @@ index 71c2536..0329006 100644
  pub struct Sensor {
      /// Sensor mode: text, fan, progress, pointer
 diff --git a/crates/asterctl/src/main.rs b/crates/asterctl/src/main.rs
-index c855cf2..c487d03 100644
+index c855cf2..766b1dc 100644
 --- a/crates/asterctl/src/main.rs
 +++ b/crates/asterctl/src/main.rs
 @@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
@@ -49,7 +49,7 @@ index c855cf2..c487d03 100644
  use std::time::{Duration, Instant};
  
  /// AOOSTAR WTR MAX and GEM12+ PRO screen control.
-@@ -267,14 +268,40 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+@@ -267,14 +268,59 @@ fn run_sensor_panel<B: Into<PathBuf>>(
          .switch_time
          .as_deref()
          .and_then(|v| f32::from_str(v).ok())
@@ -63,6 +63,7 @@ index c855cf2..c487d03 100644
 +    let details_panel_trigger = Path::new("/run/aoostar-details-panel");
 +    let root_panel_trigger = Path::new("/run/aoostar-root-panel");
 +    let system_actions_trigger = Path::new("/run/aoostar-system-actions");
++    let startup_marker = Path::new("/run/aoostar-startup");
 +    let reboot_panel = cfg
 +        .panels
 +        .iter()
@@ -75,6 +76,24 @@ index c855cf2..c487d03 100644
 +        .find(|candidate| candidate.friendly_name() == "System Actions Shutdown")
 +        .cloned()
 +        .ok_or(anyhow!("Missing System Actions Shutdown panel"))?;
++    let rebooting_panel = cfg
++        .panels
++        .iter()
++        .find(|candidate| candidate.friendly_name() == "System Rebooting")
++        .cloned()
++        .ok_or(anyhow!("Missing System Rebooting panel"))?;
++    let shutting_down_panel = cfg
++        .panels
++        .iter()
++        .find(|candidate| candidate.friendly_name() == "System Shutting Down")
++        .cloned()
++        .ok_or(anyhow!("Missing System Shutting Down panel"))?;
++    let starting_panel = cfg
++        .panels
++        .iter()
++        .find(|candidate| candidate.friendly_name() == "System Starting")
++        .cloned()
++        .ok_or(anyhow!("Missing System Starting panel"))?;
  
      // panel switching loop
      loop {
@@ -94,7 +113,7 @@ index c855cf2..c487d03 100644
  
          info!("Switching panel: {}", panel.friendly_name());
          let panel_switch_time = Instant::now();
-@@ -290,15 +317,184 @@ fn run_sensor_panel<B: Into<PathBuf>>(
+@@ -290,15 +336,203 @@ fn run_sensor_panel<B: Into<PathBuf>>(
  
              // Keeping the read lock during panel rendering should be ok, otherwise we could always clone the HashMap
              let values = sensor_values.read().expect("RwLock is poisoned");
@@ -117,7 +136,9 @@ index c855cf2..c487d03 100644
 +                panel = overview_panel.clone();
 +                current_level = 0;
 +            }
-+            let render_panel = if panel.friendly_name() == "Storage" {
++            let render_panel = if startup_marker.exists() {
++                &starting_panel
++            } else if panel.friendly_name() == "Storage" {
 +                storage_layout_name
 +                    .as_deref()
 +                    .and_then(|name| {
@@ -185,8 +206,25 @@ index c855cf2..c487d03 100644
 +                if details_requested {
 +                    let action = if shutdown_selected { "poweroff" } else { "reboot" };
 +                    info!("SYSTEM ACTIONS confirmed: {action}");
-+                    Command::new("/usr/bin/systemctl").arg(action).status()?;
-+                    return Ok(());
++                    panel = if shutdown_selected {
++                        shutting_down_panel.clone()
++                    } else {
++                        rebooting_panel.clone()
++                    };
++                    fs::write("/run/aoostar-power-transition", action)?;
++                    // Render acknowledgement before systemd starts stopping units.
++                    {
++                        let values = sensor_values.read().expect("RwLock is poisoned");
++                        update_panel(screen, &mut renderer, &panel, &values)?;
++                    }
++                    Command::new("/opt/aoostar-display/aoostar-power-transition")
++                        .arg(action)
++                        .spawn()?;
++                    // Continue refreshing while the orchestrator stops guests and syncs.
++                    in_system_actions = false;
++                    system_actions_deadline = None;
++                    refresh_count = 1;
++                    continue;
 +                }
 +
 +                if system_actions_deadline.is_some_and(|deadline| Instant::now() >= deadline) {

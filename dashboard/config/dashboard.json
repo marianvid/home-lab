@@ -5191,6 +5191,108 @@
       "name": "System Actions Shutdown",
       "img": "img/system-actions-shutdown.png",
       "sensor": []
+    },
+    {
+      "name": "System Rebooting",
+      "img": "img/system-rebooting.png",
+      "sensor": [
+        {
+          "mode": 1,
+          "type": 1,
+          "name": "lab_power_transition_status",
+          "label": "lab_power_transition_status",
+          "x": 480,
+          "y": 270,
+          "width": 0,
+          "height": 0,
+          "textDirection": 0,
+          "direction": 1,
+          "value": "0",
+          "fontFamily": "DejaVuSans",
+          "fontSize": 25,
+          "fontColor": "#edf4ff",
+          "fontWeight": "normal",
+          "textAlign": "center",
+          "integerDigits": -1,
+          "decimalDigits": -1,
+          "unit": "",
+          "minAngle": 0,
+          "maxAngle": 180,
+          "minValue": 0,
+          "maxValue": 100,
+          "pic": "",
+          "xz_x": 0,
+          "xz_y": 0
+        }
+      ]
+    },
+    {
+      "name": "System Shutting Down",
+      "img": "img/system-shutting-down.png",
+      "sensor": [
+        {
+          "mode": 1,
+          "type": 1,
+          "name": "lab_power_transition_status",
+          "label": "lab_power_transition_status",
+          "x": 480,
+          "y": 270,
+          "width": 0,
+          "height": 0,
+          "textDirection": 0,
+          "direction": 1,
+          "value": "0",
+          "fontFamily": "DejaVuSans",
+          "fontSize": 25,
+          "fontColor": "#edf4ff",
+          "fontWeight": "normal",
+          "textAlign": "center",
+          "integerDigits": -1,
+          "decimalDigits": -1,
+          "unit": "",
+          "minAngle": 0,
+          "maxAngle": 180,
+          "minValue": 0,
+          "maxValue": 100,
+          "pic": "",
+          "xz_x": 0,
+          "xz_y": 0
+        }
+      ]
+    },
+    {
+      "name": "System Starting",
+      "img": "img/system-starting.png",
+      "sensor": [
+        {
+          "mode": 1,
+          "type": 1,
+          "name": "lab_startup_status",
+          "label": "lab_startup_status",
+          "x": 480,
+          "y": 270,
+          "width": 0,
+          "height": 0,
+          "textDirection": 0,
+          "direction": 1,
+          "value": "0",
+          "fontFamily": "DejaVuSans",
+          "fontSize": 25,
+          "fontColor": "#edf4ff",
+          "fontWeight": "normal",
+          "textAlign": "center",
+          "integerDigits": -1,
+          "decimalDigits": -1,
+          "unit": "",
+          "minAngle": 0,
+          "maxAngle": 180,
+          "minValue": 0,
+          "maxValue": 100,
+          "pic": "",
+          "xz_x": 0,
+          "xz_y": 0
+        }
+      ]
     }
   ]
 }

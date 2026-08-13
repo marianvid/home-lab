@@ -1,0 +1,60 @@
+#!/bin/bash
+set -u
+
+action=${1:-}
+case "$action" in
+    reboot|poweroff) ;;
+    *) exit 2 ;;
+esac
+
+run_dir=/run/aoostar-display
+marker=/run/aoostar-power-transition
+status_file="$run_dir/power-transition-status"
+mkdir -p "$run_dir"
+printf '%s\n' "$action" > "$marker"
+
+set_status() {
+    tmp="$status_file.$$.tmp"
+    printf '%s\n' "$1" > "$tmp"
+    mv "$tmp" "$status_file"
+    logger -t aoostar-power-transition "$1"
+}
+
+if [ "$action" = reboot ]; then
+    set_status "REBOOT ACCEPTED"
+else
+    set_status "SHUTDOWN ACCEPTED"
+fi
+sleep 2
+
+mapfile -t running_vms < <(qm list 2>/dev/null | awk 'NR>1 && $3=="running" {print $1}')
+mapfile -t running_cts < <(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {print $1}')
+
+for vmid in "${running_vms[@]}"; do
+    qm shutdown "$vmid" --timeout 60 >/dev/null 2>&1 &
+done
+for ctid in "${running_cts[@]}"; do
+    pct shutdown "$ctid" --timeout 60 >/dev/null 2>&1 &
+done
+
+deadline=$((SECONDS+65))
+while [ "$SECONDS" -lt "$deadline" ]; do
+    vm_count=$(qm list 2>/dev/null | awk 'NR>1 && $3=="running" {n++} END {print n+0}')
+    ct_count=$(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {n++} END {print n+0}')
+    [ $((vm_count+ct_count)) -eq 0 ] && break
+    set_status "STOPPING GUESTS · VM $vm_count · CT $ct_count"
+    sleep 1
+done
+wait || true
+
+set_status "SYNCING STORAGE"
+sync
+sleep 2
+
+if [ "$action" = reboot ]; then
+    set_status "RESTARTING SYSTEM"
+else
+    set_status "POWERING OFF"
+fi
+sleep 2
+/usr/bin/systemctl --no-block "$action"

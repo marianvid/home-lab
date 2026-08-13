@@ -5,7 +5,8 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 dist_dir=${HOME_LAB_DIST_DIR:-$root_dir/dist}
 
 required=(
-    bin/asterctl bin/aster-sysinfo bin/mafp-next-panel
+    bin/asterctl bin/aster-sysinfo bin/mafp-next-panel \
+    bin/aoostar-power-transition bin/aoostar-startup-status
     bin/mafp-calibrate bin/aoostar-power-button
     bin/aoostar-lab-sensors bin/aoostar-health-monitor
     share/home-lab/dashboard.json
@@ -21,6 +22,8 @@ done
 python3 -m json.tool "$dist_dir/share/home-lab/dashboard.json" >/dev/null
 bash -n "$dist_dir/bin/aoostar-lab-sensors"
 bash -n "$dist_dir/bin/aoostar-health-monitor"
+bash -n "$dist_dir/bin/aoostar-power-transition"
+bash -n "$dist_dir/bin/aoostar-startup-status"
 "$dist_dir/bin/asterctl" --version
 "$dist_dir/bin/aster-sysinfo" --version
 

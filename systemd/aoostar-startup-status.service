@@ -1,0 +1,12 @@
+[Unit]
+Description=HOME LAB startup status for LCD
+After=aoostar-display.service network.target
+Requires=aoostar-display.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/aoostar-display/aoostar-startup-status
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

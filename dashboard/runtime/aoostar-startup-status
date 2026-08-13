@@ -1,0 +1,40 @@
+#!/bin/bash
+set -u
+
+run_dir=/run/aoostar-display
+marker=/run/aoostar-startup
+status_file="$run_dir/startup-status"
+mkdir -p "$run_dir"
+touch "$marker"
+
+set_status() {
+    tmp="$status_file.$$.tmp"
+    printf '%s\n' "$1" > "$tmp"
+    mv "$tmp" "$status_file"
+}
+
+set_status "INITIALIZING SYSTEM"
+sleep 2
+
+for _ in $(seq 1 30); do
+    if ip route show default 2>/dev/null | grep -q '^default '; then
+        set_status "NETWORK ONLINE"
+        break
+    fi
+    set_status "WAITING FOR NETWORK"
+    sleep 1
+done
+
+for _ in $(seq 1 45); do
+    ready=0
+    for service in pveproxy pvedaemon pvestatd pve-cluster; do
+        systemctl is-active --quiet "$service" && ready=$((ready+1))
+    done
+    set_status "STARTING PROXMOX SERVICES · $ready/4"
+    [ "$ready" -eq 4 ] && break
+    sleep 1
+done
+
+set_status "SYSTEM READY"
+sleep 2
+rm -f "$marker" "$status_file"

@@ -158,6 +158,8 @@ while true; do
     storage_detected=$(lsblk -dn -o TYPE 2>/dev/null | awk '$1=="disk" {n++} END {print n+0}')
     guests=$( { qm list 2>/dev/null | awk 'NR>1 && $3=="running" {print $1}'; pct list 2>/dev/null | awk 'NR>1 && $2=="running" {print $1}'; } | paste -sd, -)
     [ -n "$guests" ] || guests="none"
+    power_transition_status=$(cat "$run_dir/power-transition-status" 2>/dev/null || true)
+    startup_status=$(cat "$run_dir/startup-status" 2>/dev/null || true)
 
     ip_addr=$(ip -4 -o addr show dev "$iface" 2>/dev/null | awk 'NR==1 {split($4,a,"/"); print a[1]}')
     [ -n "$ip_addr" ] || ip_addr="no address"
@@ -577,6 +579,8 @@ EOF
         echo "lab_ext2_media_errors: $ext2_media_errors"
         echo "lab_node_state: ONLINE"
         echo "lab_active_guests: $guests"
+        echo "lab_power_transition_status: $power_transition_status"
+        echo "lab_startup_status: $startup_status"
         echo "lab_ip: $ip_addr"
         echo "lab_net_down: $down"
         echo "lab_net_up: $up"

@@ -31,6 +31,11 @@ The same source changes are active on the reference system and have been tested
 with the physical LCD, persistent fingerprint touch input, adaptive Storage
 layout, native USB4/NVMe SMART data and guarded Power menu.
 
+The orchestrated reboot and shutdown paths were also tested on hardware. They
+stopped one VM and two containers, synchronized storage, performed the requested
+power action, displayed startup readiness after firmware handoff, and restored
+all dashboard/input services after boot.
+
 ## Scope
 
 Passing on the reference system does not establish compatibility with other
