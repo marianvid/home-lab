@@ -139,7 +139,7 @@ index c855cf2..c3823e5 100644
 +                panel = overview_panel.clone();
 +                current_level = 0;
 +            }
-+            if panel.friendly_name() == "Storage > Lexar 2"
++            if panel.friendly_name() == "Storage > Lexar 2 · NM790"
 +                && !internal_nvme2_present
 +            {
 +                panel = overview_panel.clone();
@@ -279,7 +279,7 @@ index c855cf2..c3823e5 100644
 +                    name.starts_with(&child_prefix)
 +                        && name.matches(" > ").count() == child_level
 +                        && (name != "Storage > External SATA" || external_sata_present)
-+                        && (name != "Storage > Lexar 2" || internal_nvme2_present)
++                        && (name != "Storage > Lexar 2 · NM790" || internal_nvme2_present)
 +                });
 +                if let Some(child) = child {
 +                    panel = child.clone();
@@ -311,7 +311,7 @@ index c855cf2..c3823e5 100644
 +                        name.starts_with(&sibling_prefix)
 +                            && name.matches(" > ").count() == current_level
 +                            && (name != "Storage > External SATA" || external_sata_present)
-+                            && (name != "Storage > Lexar 2" || internal_nvme2_present)
++                            && (name != "Storage > Lexar 2 · NM790" || internal_nvme2_present)
 +                    })
 +                    .cloned()
 +                    .collect();

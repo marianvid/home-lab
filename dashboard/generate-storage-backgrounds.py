@@ -46,8 +46,8 @@ def render(filename: str, title: str, accent: str, labels=None) -> None:
     image.save(HERE / "assets" / filename)
 
 
-render("lexar.png", "STORAGE  /  LEXAR NM790", BLUE)
-render("lexar2.png", "STORAGE  /  LEXAR 2", BLUE)
+render("lexar.png", "STORAGE  /  LEXAR 1 · NM790", BLUE)
+render("lexar2.png", "STORAGE  /  LEXAR 2 · NM790", BLUE)
 render("corsair.png", "STORAGE  /  CORSAIR EX400U USB4", TEAL)
 render(
     "external-device.png",
