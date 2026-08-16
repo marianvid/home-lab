@@ -15,8 +15,10 @@ run_dir=/run/aoostar-display
 out_file="$run_dir/lab.txt"
 state_file="$run_dir/network.state"
 smart_cache_dir=/run/aoostar-smart-cache
+persistent_smart_cache_dir=/var/lib/aoostar-display/smart-cache
 mkdir -p "$run_dir"
 mkdir -p "$smart_cache_dir"
+mkdir -p "$persistent_smart_cache_dir"
 
 value_from_sysinfo() {
     awk -F': ' -v key="$1" '$1 == key {print $2; exit}' "$run_dir/sysinfo.txt" 2>/dev/null | sed 's/ °C$//'
@@ -43,18 +45,42 @@ refresh_smart_cache() {
     fi
 }
 
-refresh_smart_cache_no_wake() {
+refresh_smart_cache_when_active() {
     dev="$1"; cache="$2"; stamp="$3"
+    real_dev=$(readlink -f "$dev" 2>/dev/null || true)
+    block_name=${real_dev##*/}
+    io_state="$smart_cache_dir/${block_name}.io"
     cache_time=$(stat -c %Y "$cache" 2>/dev/null || echo 0)
     smart_sleeping=0
-    if [ $((stamp-cache_time)) -ge 10 ] && [ -e "$dev" ]; then
+
+    [ -n "$block_name" ] && [ -r "/sys/class/block/$block_name/stat" ] || return
+    io_signature=$(awk '{print $1 ":" $3 ":" $5 ":" $7}' "/sys/class/block/$block_name/stat" 2>/dev/null)
+    [ -n "$io_signature" ] || return
+
+    last_activity=$stamp
+    old_signature=""
+    if [ -r "$io_state" ]; then
+        read -r last_activity old_signature < "$io_state" || true
+    fi
+
+    if [ -z "$old_signature" ]; then
+        printf '%s %s\n' "$stamp" "$io_signature" > "$io_state"
+        return
+    fi
+
+    if [ "$io_signature" != "$old_signature" ]; then
+        last_activity=$stamp
+        printf '%s %s\n' "$last_activity" "$io_signature" > "$io_state"
+    elif [ $((stamp-last_activity)) -ge 900 ]; then
+        smart_sleeping=1
+    fi
+
+    # USB-to-SATA bridges may ignore smartctl's `-n standby` guard and wake a
+    # rotating disk. Refresh SMART only after genuine block I/O proves that
+    # the disk is already active; otherwise retain the last known snapshot.
+    if [ "$io_signature" != "$old_signature" ] && [ $((stamp-cache_time)) -ge 60 ] && [ -e "$dev" ]; then
         smart_tmp="$cache.$$.tmp"
-        smartctl -a -n standby "$dev" > "$smart_tmp" 2>/dev/null
-        smart_rc=$?
-        if grep -qiE 'STANDBY|SLEEP' "$smart_tmp"; then
-            smart_sleeping=1
-            rm -f "$smart_tmp"
-        elif [ "$smart_rc" -eq 0 ] || grep -qE '^(Device Model|Model Number):' "$smart_tmp"; then
+        if smartctl -a "$dev" > "$smart_tmp" 2>/dev/null || grep -qE '^(Device Model|Model Number):' "$smart_tmp"; then
             mv "$smart_tmp" "$cache"
         else
             rm -f "$smart_tmp"
@@ -280,7 +306,7 @@ EOF
     lexar_cache="$smart_cache_dir/lexar-smart.txt"
     lexar2_cache="$smart_cache_dir/lexar2-smart.txt"
     corsair_cache="$smart_cache_dir/corsair-smart.txt"
-    ext2_cache="$smart_cache_dir/ext2-smart.txt"
+    ext2_cache="$persistent_smart_cache_dir/ext2-smart.txt"
     refresh_smart_cache "$lexar_dev" "$lexar_cache" "$now"
     if [ -n "$lexar2_dev" ]; then
         lexar2_identity=$(lsblk -dn -o MODEL,SERIAL "$lexar2_dev" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]][[:space:]]*/ /g; s/[[:space:]]*$//')
@@ -298,16 +324,20 @@ EOF
     ext2_sleeping=0
     if [ -n "$ext2_dev" ]; then
         ext2_identity=$(lsblk -dn -o MODEL,SERIAL "$ext2_dev" 2>/dev/null | sed 's/^[[:space:]]*//; s/[[:space:]][[:space:]]*/ /g; s/[[:space:]]*$//')
-        ext2_identity_file="$smart_cache_dir/ext2.identity"
+        ext2_identity_file="$persistent_smart_cache_dir/ext2.identity"
         old_ext2_identity=$(cat "$ext2_identity_file" 2>/dev/null || true)
         if [ "$ext2_identity" != "$old_ext2_identity" ]; then
             rm -f "$ext2_cache"
+            ext2_block=$(basename "$(readlink -f "$ext2_dev" 2>/dev/null)")
+            rm -f "$smart_cache_dir/${ext2_block}.io"
             printf '%s\n' "$ext2_identity" > "$ext2_identity_file"
         fi
-        refresh_smart_cache_no_wake "$ext2_dev" "$ext2_cache" "$now"
+        refresh_smart_cache_when_active "$ext2_dev" "$ext2_cache" "$now"
         ext2_sleeping=$smart_sleeping
     else
-        rm -f "$ext2_cache" "$smart_cache_dir/ext2.identity"
+        # Keep the last snapshot while the removable disk is disconnected.
+        # Its identity is validated before the cache is reused after insertion.
+        :
     fi
 
     lexar_smart=$(smart_field "$lexar_cache" "SMART overall-health self-assessment test result"); lexar_smart=${lexar_smart/PASSED/OK}; lexar_smart=${lexar_smart:-N/A}
